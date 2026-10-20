@@ -25,10 +25,23 @@ import { DEFAULT_HOME_CONTENT } from './data/homeContentData';
 import { DEFAULT_ABOUT_CONTENT } from './data/aboutContentData';
 import { DEFAULT_CONTACT_CONTENT } from './data/contactContentData';
 import { DEFAULT_LEGAL_CONTENT } from './data/legalData';
-import { DEFAULT_HEADER_FOOTER_CONTENT } from './data/headerFooterData';
+import { DEFAULT_HEADER_FOOTER_CONTENT, DEFAULT_HEADER_NAV_ITEMS } from './data/headerFooterData';
 import { DEFAULT_OCCASION_DATA, DEFAULT_OCCASIONS_STATE } from './data/occasionContentData';
 import { DEFAULT_BLOG_CONTENT } from './data/blogData';
 import { apiCreateOrder, apiGetProducts, apiGetCategories, apiGetOrders, safeSaveProductsCache, apiGetCmsContent, apiSaveCmsContent } from './services/api';
+
+// Helper to ensure header nav items contain all default items (heals old/truncated caches)
+function mergeDefaultNavItems(items) {
+  if (!Array.isArray(items) || items.length === 0) return DEFAULT_HEADER_NAV_ITEMS;
+  const existingIds = new Set(items.map((i) => i.id));
+  const merged = [...items];
+  DEFAULT_HEADER_NAV_ITEMS.forEach((defaultItem) => {
+    if (!existingIds.has(defaultItem.id)) {
+      merged.push(defaultItem);
+    }
+  });
+  return merged;
+}
 
 export default function App() {
   const [categories, setCategories] = useState(() => {
@@ -119,7 +132,7 @@ export default function App() {
               ...DEFAULT_HEADER_FOOTER_CONTENT.header,
               ...(prev.header || {}),
               ...(remoteHF.header || {}),
-              navItems: remoteHF.header?.navItems || prev.header?.navItems || DEFAULT_HEADER_FOOTER_CONTENT.header.navItems,
+              navItems: mergeDefaultNavItems(remoteHF.header?.navItems || prev.header?.navItems || DEFAULT_HEADER_FOOTER_CONTENT.header.navItems),
               occasionMenu: remoteHF.header?.occasionMenu || prev.header?.occasionMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.occasionMenu,
               corporateMenu: remoteHF.header?.corporateMenu || prev.header?.corporateMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.corporateMenu,
               visibility: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.visibility, ...(remoteHF.header?.visibility || {}) },
@@ -448,7 +461,7 @@ export default function App() {
           header: {
             ...DEFAULT_HEADER_FOOTER_CONTENT.header,
             ...(parsed.header || {}),
-            navItems: parsed.header?.navItems || DEFAULT_HEADER_FOOTER_CONTENT.header.navItems,
+            navItems: mergeDefaultNavItems(parsed.header?.navItems || DEFAULT_HEADER_FOOTER_CONTENT.header.navItems),
             occasionMenu: parsed.header?.occasionMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.occasionMenu,
             corporateMenu: parsed.header?.corporateMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.corporateMenu,
             visibility: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.visibility, ...(parsed.header?.visibility || {}) },

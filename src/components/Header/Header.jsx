@@ -28,6 +28,7 @@ export default function Header({
   const [selectedCategory, setSelectedCategory] = useState({ id: 'all', name: 'All categories' });
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const catDropdownRef = useRef(null);
 
@@ -54,28 +55,44 @@ export default function Header({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Lock body scroll when mobile menu is open
+  // Lock body scroll when mobile menu is open & close on Escape
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isMobileMenuOpen]);
 
   const handleMobileMegaToggle = (key) => {
-    if (window.innerWidth <= 1200) {
-      setOpenMobileMega((prev) => (prev === key ? null : key));
-    }
+    setOpenMobileMega((prev) => (prev === key ? null : key));
   };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (onSearch) {
       onSearch({ query: searchQuery, categoryId: selectedCategory.id });
+    }
+  };
+
+  const handleMobileSearchSubmit = (e) => {
+    e.preventDefault();
+    if (!mobileSearchQuery.trim()) return;
+    setIsMobileMenuOpen(false);
+    if (onSearch) {
+      onSearch({ query: mobileSearchQuery.trim(), categoryId: 'all' });
     }
   };
 
@@ -427,97 +444,11 @@ export default function Header({
       </div>
 
       {/* ═════════════════════════════════════════════════════════ */}
-      {/* 3. BOTTOM NAVIGATION BAR (Exact Tabs with Icons)         */}
+      {/* 3. BOTTOM NAVIGATION BAR (Desktop Only)                   */}
       {/* ═════════════════════════════════════════════════════════ */}
-      <div className="bottom-bar">
+      <div className="bottom-bar desktop-only">
         <div className="container bottom-bar-inner">
-          <nav className={`nav-tabs-container ${isMobileMenuOpen ? 'active-mobile' : ''}`} id="mainNavigation">
-            {/* Mobile-Only User Details */}
-            <div className="mobile-auth-header mobile-only">
-              {user ? (
-                <div className="mobile-user-row">
-                  <div
-                    className="mobile-user-info"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      if (onOpenAccount) onOpenAccount();
-                    }}
-                  >
-                    <strong>{user.name || user.email}</strong>
-                    <span>{user.role === 'admin' ? 'Store Administrator' : 'Customer Account (Click for Profile)'}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="mobile-logout-btn"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      onLogout();
-                    }}
-                  >
-                    <i className="fa-solid fa-right-from-bracket"></i> Logout
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                  <button
-                    type="button"
-                    className="mobile-login-link"
-                    style={{
-                      flex: 1,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      border: '1px solid #e2e8f0',
-                      background: '#ffffff',
-                      borderRadius: '8px',
-                      padding: '10px 8px',
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      color: '#1e293b',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px'
-                    }}
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      if (onOpenAuth) onOpenAuth('login');
-                    }}
-                  >
-                    <i className="fa-solid fa-arrow-right-to-bracket" style={{ color: '#c40b90' }}></i>
-                    <span>Sign In</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="mobile-login-link"
-                    style={{
-                      flex: 1,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      border: 'none',
-                      background: 'linear-gradient(135deg, #c40b90 0%, #e7137a 100%)',
-                      color: '#ffffff',
-                      borderRadius: '8px',
-                      padding: '10px 8px',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px'
-                    }}
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      if (onOpenAuth) onOpenAuth('signup');
-                    }}
-                  >
-                    <i className="fa-solid fa-user-plus"></i>
-                    <span>Sign Up</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
+          <nav className="nav-tabs-container" id="mainNavigation">
             {/* Dynamic Navigation Tabs (Admin Configurable) */}
             {(headerContent?.navItems || DEFAULT_HEADER_NAV_ITEMS)
               .filter((item) => item.visible !== false)
@@ -525,15 +456,8 @@ export default function Header({
                 if (item.type === 'dropdown-occasion') {
                   const occasionSections = headerContent?.occasionMenu?.sections || DEFAULT_OCCASION_MENU_DATA.sections;
                   return (
-                    <div
-                      key={item.id}
-                      className={`nav-tab-dropdown-wrap ${openMobileMega === 'occasion' ? 'mobile-open' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className="nav-tab-item nav-dropdown-btn"
-                        onClick={() => handleMobileMegaToggle('occasion')}
-                      >
+                    <div key={item.id} className="nav-tab-dropdown-wrap">
+                      <button type="button" className="nav-tab-item nav-dropdown-btn">
                         {item.icon && <i className={item.icon}></i>}
                         <span>{item.label}</span>
                         <i className="fa-solid fa-chevron-down nav-chevron"></i>
@@ -567,15 +491,8 @@ export default function Header({
 
                 if (item.type === 'dropdown-category') {
                   return (
-                    <div
-                      key={item.id}
-                      className={`nav-tab-dropdown-wrap ${openMobileMega === 'category' ? 'mobile-open' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className="nav-tab-item nav-dropdown-btn"
-                        onClick={() => handleMobileMegaToggle('category')}
-                      >
+                    <div key={item.id} className="nav-tab-dropdown-wrap">
+                      <button type="button" className="nav-tab-item nav-dropdown-btn">
                         {item.icon && <i className={item.icon}></i>}
                         <span>{item.label}</span>
                         <i className="fa-solid fa-chevron-down nav-chevron"></i>
@@ -653,15 +570,8 @@ export default function Header({
                 if (item.type === 'dropdown-corporate') {
                   const corporateLinks = headerContent?.corporateMenu?.links || DEFAULT_CORPORATE_MENU_DATA.links;
                   return (
-                    <div
-                      key={item.id}
-                      className={`nav-tab-dropdown-wrap ${openMobileMega === 'corporate' ? 'mobile-open' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className="nav-tab-item nav-dropdown-btn"
-                        onClick={() => handleMobileMegaToggle('corporate')}
-                      >
+                    <div key={item.id} className="nav-tab-dropdown-wrap">
+                      <button type="button" className="nav-tab-item nav-dropdown-btn">
                         {item.icon && <i className={item.icon}></i>}
                         <span>{item.label}</span>
                         <i className="fa-solid fa-chevron-down nav-chevron"></i>
@@ -688,17 +598,9 @@ export default function Header({
                 }
 
                 if (item.type === 'dropdown-custom' || (Array.isArray(item.subItems) && item.subItems.length > 0)) {
-                  const customDropKey = item.id || `custom_${item.label}`;
                   return (
-                    <div
-                      key={item.id || item.label}
-                      className={`nav-tab-dropdown-wrap ${openMobileMega === customDropKey ? 'mobile-open' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className="nav-tab-item nav-dropdown-btn"
-                        onClick={() => handleMobileMegaToggle(customDropKey)}
-                      >
+                    <div key={item.id || item.label} className="nav-tab-dropdown-wrap">
+                      <button type="button" className="nav-tab-item nav-dropdown-btn">
                         {item.icon && <i className={item.icon}></i>}
                         <span>{item.label}</span>
                         <i className="fa-solid fa-chevron-down nav-chevron"></i>
@@ -727,14 +629,10 @@ export default function Header({
 
                 if (item.type === 'dropdown-contact') {
                   return (
-                    <div
-                      key={item.id}
-                      className={`nav-tab-dropdown-wrap ${openMobileMega === 'contact' ? 'mobile-open' : ''}`}
-                    >
+                    <div key={item.id} className="nav-tab-dropdown-wrap">
                       <button
                         type="button"
                         className={`nav-tab-item nav-dropdown-btn ${activePath === '/contact' ? 'active-nav-pill' : ''}`}
-                        onClick={() => handleMobileMegaToggle('contact')}
                       >
                         {item.icon && <i className={item.icon}></i>}
                         <span>{item.label}</span>
@@ -778,19 +676,448 @@ export default function Header({
                   </a>
                 );
               })}
-
           </nav>
         </div>
       </div>
 
-      {/* Mobile Navigation Backdrop */}
-      {isMobileMenuOpen && (
+      {/* ═════════════════════════════════════════════════════════ */}
+      {/* 4. DEDICATED MOBILE NAVIGATION DRAWER (Mobile & Tablet)   */}
+      {/* ═════════════════════════════════════════════════════════ */}
+      <div
+        className={`mobile-nav-drawer-sheet ${isMobileMenuOpen ? 'drawer-open' : ''}`}
+        aria-hidden={!isMobileMenuOpen}
+      >
+        {/* Backdrop */}
         <div
-          className="mobile-nav-backdrop"
+          className="mobile-drawer-backdrop"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden="true"
         />
-      )}
+
+        {/* Off-canvas Panel */}
+        <div
+          className="mobile-drawer-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation Menu"
+        >
+          {/* 1. Drawer Header */}
+          <div className="mobile-drawer-header">
+            <div
+              className="mobile-drawer-brand"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                handleNavLinkClick('/');
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <img
+                src={headerContent?.brand?.logoUrl || logoImg}
+                alt={headerContent?.brand?.logoAlt || 'Fine Gift Studio'}
+                className="mobile-drawer-logo"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+              <div className="mobile-drawer-brand-text">
+                <span className="mobile-drawer-title">{headerContent?.brand?.title || 'FINE GIFT STUDIO'}</span>
+                <span className="mobile-drawer-subtitle">{headerContent?.brand?.subtitle || '— PRINT YOUR IDEAS —'}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="mobile-drawer-close-btn"
+              onClick={() => setIsMobileMenuOpen(false)}
+              aria-label="Close navigation"
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          {/* 2. Drawer Search */}
+          <div className="mobile-drawer-search-wrap">
+            <form className="mobile-drawer-search-form" onSubmit={handleMobileSearchSubmit}>
+              <i className="fa-solid fa-magnifying-glass search-icon"></i>
+              <input
+                type="text"
+                className="mobile-drawer-search-input"
+                placeholder={headerContent?.search?.placeholder || 'Search gifts, mugs, personalized items...'}
+                value={mobileSearchQuery}
+                onChange={(e) => setMobileSearchQuery(e.target.value)}
+              />
+              {mobileSearchQuery && (
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', padding: '4px', cursor: 'pointer', marginRight: '4px' }}
+                  onClick={() => setMobileSearchQuery('')}
+                  aria-label="Clear search"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              )}
+              <button type="submit" className="mobile-drawer-search-submit" aria-label="Submit search">
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+            </form>
+          </div>
+
+          {/* 3. User Authentication / Profile Banner */}
+          <div className="mobile-drawer-auth-box">
+            {user ? (
+              <div className="mobile-drawer-user-card">
+                <div
+                  className="mobile-drawer-user-info"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (onOpenAccount) onOpenAccount();
+                  }}
+                >
+                  <div className="mobile-drawer-user-avatar">
+                    {(user.name || user.email || 'U')[0].toUpperCase()}
+                  </div>
+                  <div className="mobile-drawer-user-text">
+                    <strong className="mobile-drawer-user-name">{user.name || user.email}</strong>
+                    <span className="mobile-drawer-user-role">
+                      {user.role === 'admin' ? 'Store Administrator' : 'Customer Account'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="mobile-drawer-logout-btn"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onLogout();
+                  }}
+                  title="Logout"
+                >
+                  <i className="fa-solid fa-right-from-bracket"></i>
+                  <span>Logout</span>
+                </button>
+              </div>
+            ) : (
+              <div className="mobile-drawer-guest-btns">
+                <button
+                  type="button"
+                  className="mobile-drawer-btn-signin"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (onOpenAuth) onOpenAuth('login');
+                  }}
+                >
+                  <i className="fa-solid fa-arrow-right-to-bracket"></i>
+                  <span>Sign In</span>
+                </button>
+                <button
+                  type="button"
+                  className="mobile-drawer-btn-signup"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (onOpenAuth) onOpenAuth('signup');
+                  }}
+                >
+                  <i className="fa-solid fa-user-plus"></i>
+                  <span>Sign Up</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 4. Scrollable Navigation Body */}
+          <div className="mobile-drawer-nav-scroll">
+            <span className="mobile-drawer-section-label">Explore Store</span>
+            {(headerContent?.navItems || DEFAULT_HEADER_NAV_ITEMS)
+              .filter((item) => item.visible !== false)
+              .map((item) => {
+                if (item.type === 'dropdown-occasion') {
+                  const occasionSections = headerContent?.occasionMenu?.sections || DEFAULT_OCCASION_MENU_DATA.sections;
+                  const isOpen = openMobileMega === 'occasion';
+                  return (
+                    <div key={item.id} className={`mobile-nav-accordion ${isOpen ? 'accordion-open' : ''}`}>
+                      <button
+                        type="button"
+                        className="mobile-nav-link-row"
+                        onClick={() => handleMobileMegaToggle('occasion')}
+                      >
+                        <i className={`item-icon ${item.icon || 'fa-solid fa-gift'}`}></i>
+                        <span className="item-text">{item.label}</span>
+                        <i className="fa-solid fa-chevron-down accordion-chevron"></i>
+                      </button>
+
+                      {isOpen && (
+                        <div className="mobile-accordion-panel">
+                          {occasionSections.map((sec, idx) => (
+                            <div key={sec.id || idx} style={{ marginBottom: '8px' }}>
+                              <div className="mobile-accordion-group-title">{sec.heading}</div>
+                              {(sec.links || []).map((lnk, lIdx) => (
+                                <a
+                                  key={lnk.id || lIdx}
+                                  href={lnk.url}
+                                  className="mobile-accordion-link"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleNavLinkClick(lnk.url);
+                                  }}
+                                >
+                                  <i className="fa-solid fa-angle-right" style={{ fontSize: '11px', color: '#c40b90' }}></i>
+                                  <span>{lnk.name || lnk.label}</span>
+                                </a>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (item.type === 'dropdown-category') {
+                  const isOpen = openMobileMega === 'category';
+                  return (
+                    <div key={item.id} className={`mobile-nav-accordion ${isOpen ? 'accordion-open' : ''}`}>
+                      <button
+                        type="button"
+                        className="mobile-nav-link-row"
+                        onClick={() => handleMobileMegaToggle('category')}
+                      >
+                        <i className={`item-icon ${item.icon || 'fa-solid fa-table-cells-large'}`}></i>
+                        <span className="item-text">{item.label}</span>
+                        <i className="fa-solid fa-chevron-down accordion-chevron"></i>
+                      </button>
+
+                      {isOpen && (
+                        <div className="mobile-accordion-panel">
+                          {displayCategories.map((cat) => (
+                            <a
+                              key={cat.id || cat.name}
+                              href={`#cat-${cat.id || cat.name}`}
+                              className="mobile-accordion-link"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleNavLinkClick(`/category/${encodeURIComponent(cat.name)}`);
+                              }}
+                            >
+                              <i className={cat.icon || 'fa-solid fa-gift'} style={{ color: '#c40b90', width: '16px', textAlign: 'center' }}></i>
+                              <span>{cat.name}</span>
+                              {cat.count && <small style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: '11px' }}>{cat.count}</small>}
+                            </a>
+                          ))}
+                          <a
+                            href="#shop-all"
+                            className="mobile-accordion-link"
+                            style={{ fontWeight: 700, color: '#c40b90', borderTop: '1px solid #f1f5f9', marginTop: '4px', paddingTop: '8px' }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleNavLinkClick('/shop');
+                            }}
+                          >
+                            <i className="fa-solid fa-arrow-right" style={{ color: '#c40b90' }}></i>
+                            <span>View All Categories &amp; Products</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (item.type === 'dropdown-corporate') {
+                  const corporateLinks = headerContent?.corporateMenu?.links || DEFAULT_CORPORATE_MENU_DATA.links;
+                  const isOpen = openMobileMega === 'corporate';
+                  return (
+                    <div key={item.id} className={`mobile-nav-accordion ${isOpen ? 'accordion-open' : ''}`}>
+                      <button
+                        type="button"
+                        className="mobile-nav-link-row"
+                        onClick={() => handleMobileMegaToggle('corporate')}
+                      >
+                        <i className={`item-icon ${item.icon || 'fa-solid fa-briefcase'}`}></i>
+                        <span className="item-text">{item.label}</span>
+                        <i className="fa-solid fa-chevron-down accordion-chevron"></i>
+                      </button>
+
+                      {isOpen && (
+                        <div className="mobile-accordion-panel">
+                          {corporateLinks.map((corp, cIdx) => (
+                            <a
+                              key={corp.id || cIdx}
+                              href={corp.url || '#'}
+                              className="mobile-accordion-link"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleNavLinkClick(corp.url);
+                              }}
+                            >
+                              {corp.icon ? <i className={corp.icon} style={{ color: '#c40b90' }}></i> : <i className="fa-solid fa-angle-right" style={{ color: '#c40b90' }}></i>}
+                              <span>{corp.label}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (item.type === 'dropdown-custom' || (Array.isArray(item.subItems) && item.subItems.length > 0)) {
+                  const customDropKey = item.id || `custom_${item.label}`;
+                  const isOpen = openMobileMega === customDropKey;
+                  return (
+                    <div key={item.id || item.label} className={`mobile-nav-accordion ${isOpen ? 'accordion-open' : ''}`}>
+                      <button
+                        type="button"
+                        className="mobile-nav-link-row"
+                        onClick={() => handleMobileMegaToggle(customDropKey)}
+                      >
+                        <i className={`item-icon ${item.icon || 'fa-solid fa-wand-magic-sparkles'}`}></i>
+                        <span className="item-text">{item.label}</span>
+                        <i className="fa-solid fa-chevron-down accordion-chevron"></i>
+                      </button>
+
+                      {isOpen && (
+                        <div className="mobile-accordion-panel">
+                          {(item.subItems || []).map((sub, sIdx) => (
+                            <a
+                              key={sub.id || sIdx}
+                              href={sub.url || '#'}
+                              className="mobile-accordion-link"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleNavLinkClick(sub.url);
+                              }}
+                            >
+                              {sub.icon ? <i className={sub.icon} style={{ color: '#c40b90' }}></i> : <i className="fa-solid fa-angle-right" style={{ color: '#c40b90' }}></i>}
+                              <span>{sub.label || sub.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (item.type === 'dropdown-contact') {
+                  const isOpen = openMobileMega === 'contact';
+                  return (
+                    <div key={item.id} className={`mobile-nav-accordion ${isOpen ? 'accordion-open' : ''}`}>
+                      <button
+                        type="button"
+                        className="mobile-nav-link-row"
+                        onClick={() => handleMobileMegaToggle('contact')}
+                      >
+                        <i className={`item-icon ${item.icon || 'fa-solid fa-phone'}`}></i>
+                        <span className="item-text">{item.label}</span>
+                        <i className="fa-solid fa-chevron-down accordion-chevron"></i>
+                      </button>
+
+                      {isOpen && (
+                        <div className="mobile-accordion-panel">
+                          <a href={headerContent?.contact?.phoneLink || 'tel:+910000000000'} className="mobile-accordion-link">
+                            <i className="fa-solid fa-phone-volume" style={{ color: '#c40b90' }}></i>
+                            <span>Call: {headerContent?.contact?.phone || '(+91) 0000 000 000'}</span>
+                          </a>
+                          <a href={headerContent?.contact?.whatsappLink || 'https://wa.me/910000000000'} target="_blank" rel="noreferrer" className="mobile-accordion-link">
+                            <i className="fa-brands fa-whatsapp" style={{ color: '#25d366' }}></i>
+                            <span>WhatsApp Live Chat</span>
+                          </a>
+                          <a
+                            href="#contact-page"
+                            className="mobile-accordion-link"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleNavLinkClick('/contact');
+                            }}
+                          >
+                            <i className="fa-solid fa-envelope" style={{ color: '#c40b90' }}></i>
+                            <span>Send Message / Inquiry</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Standard Link
+                const isItemActive = item.path === '/'
+                  ? activePath === '/'
+                  : (activePath === item.path || (item.path && item.path !== '/' && activePath.startsWith(item.path)));
+
+                return (
+                  <a
+                    key={item.id || item.label}
+                    href={item.path || '#'}
+                    className={`mobile-nav-link-row ${isItemActive ? 'active-pill' : ''}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleNavLinkClick(item.path);
+                    }}
+                  >
+                    <i className={`item-icon ${item.icon || 'fa-solid fa-circle'}`}></i>
+                    <span className="item-text">{item.label}</span>
+                    {item.id === 'nav_blog' && (
+                      <span style={{ fontSize: '10px', background: '#fdf2f8', color: '#c40b90', fontWeight: 800, padding: '2px 8px', borderRadius: '20px', marginLeft: 'auto' }}>
+                        NEW
+                      </span>
+                    )}
+                  </a>
+                );
+              })}
+          </div>
+
+          {/* 5. Drawer Footer */}
+          <div className="mobile-drawer-footer">
+            <a
+              href={headerContent?.contact?.whatsappLink || 'https://wa.me/910000000000'}
+              target="_blank"
+              rel="noreferrer"
+              className="mobile-drawer-wa-cta"
+            >
+              <i className="fa-brands fa-whatsapp"></i>
+              <span>Chat on WhatsApp</span>
+            </a>
+
+            <div className="mobile-drawer-quick-row">
+              <a href={headerContent?.contact?.phoneLink || 'tel:+910000000000'} className="mobile-drawer-quick-item">
+                <i className="fa-solid fa-phone"></i>
+                <span>Direct Call</span>
+              </a>
+              <a
+                href="#track-orders"
+                className="mobile-drawer-quick-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavLinkClick('/orders');
+                }}
+              >
+                <i className="fa-solid fa-box-open"></i>
+                <span>My Orders</span>
+              </a>
+              <a
+                href="#about"
+                className="mobile-drawer-quick-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavLinkClick('/about-us');
+                }}
+              >
+                <i className="fa-solid fa-circle-info"></i>
+                <span>About Us</span>
+              </a>
+            </div>
+
+            <div className="mobile-drawer-socials">
+              <a href={headerContent?.socialLinks?.instagram || 'https://instagram.com'} target="_blank" rel="noreferrer" aria-label="Instagram">
+                <i className="fa-brands fa-instagram"></i>
+              </a>
+              <a href={headerContent?.socialLinks?.facebook || 'https://facebook.com'} target="_blank" rel="noreferrer" aria-label="Facebook">
+                <i className="fa-brands fa-facebook-f"></i>
+              </a>
+              <a href={headerContent?.socialLinks?.pinterest || 'https://pinterest.com'} target="_blank" rel="noreferrer" aria-label="Pinterest">
+                <i className="fa-brands fa-pinterest-p"></i>
+              </a>
+              <a href={headerContent?.socialLinks?.youtube || 'https://youtube.com'} target="_blank" rel="noreferrer" aria-label="YouTube">
+                <i className="fa-brands fa-youtube"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
     </header>
   );
 }
