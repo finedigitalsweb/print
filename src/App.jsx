@@ -178,8 +178,17 @@ export default function App() {
       try {
         const remoteBlog = await apiGetCmsContent('blog_content');
         if (remoteBlog && Array.isArray(remoteBlog.posts) && remoteBlog.posts.length > 0) {
-          setBlogContent(remoteBlog);
-          try { localStorage.setItem('finegift_blog_content', JSON.stringify(remoteBlog)); } catch {}
+          const cleanedPosts = remoteBlog.posts.filter((p) =>
+            !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) &&
+            !p.slug?.includes('demo') &&
+            p.id !== 'post-1792479277181'
+          );
+          const sanitizedBlog = {
+            ...remoteBlog,
+            posts: cleanedPosts.length > 0 ? cleanedPosts : DEFAULT_BLOG_POSTS
+          };
+          setBlogContent(sanitizedBlog);
+          try { localStorage.setItem('finegift_blog_content', JSON.stringify(sanitizedBlog)); } catch {}
         }
       } catch (e) {
         console.warn('Initial blog content sync:', e);
@@ -536,13 +545,17 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.posts) && parsed.posts.length > 0) {
-          // If cached blog content still contains old demo posts (post-2 through post-6), simply filter them out while safely preserving user-created articles
+          // If cached blog content still contains old demo posts or test demo articles, filter them out while safely preserving real user-created articles
           const hasOldDemoPosts = parsed.posts.some((p) =>
-            ['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id)
+            ['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) ||
+            p.slug?.includes('demo') ||
+            p.id === 'post-1792479277181'
           );
           if (hasOldDemoPosts) {
             const preservedPosts = parsed.posts.filter((p) =>
-              !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id)
+              !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) &&
+              !p.slug?.includes('demo') &&
+              p.id !== 'post-1792479277181'
             );
             const cleaned = {
               ...parsed,

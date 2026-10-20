@@ -2676,13 +2676,25 @@ export default function AdminDashboard({
   const [localBlogContent, setLocalBlogContent] = useState(() => {
     try {
       if (blogContent && Array.isArray(blogContent.posts) && blogContent.posts.length > 0) {
-        return blogContent;
+        const filtered = blogContent.posts.filter((p) =>
+          !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) &&
+          !p.slug?.includes('demo') &&
+          p.id !== 'post-1792479277181'
+        );
+        return {
+          ...blogContent,
+          posts: filtered.length > 0 ? filtered : DEFAULT_BLOG_POSTS
+        };
       }
       const saved = localStorage.getItem('finegift_blog_content');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.posts) && parsed.posts.length > 0) {
-          const filtered = parsed.posts.filter((p) => !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id));
+          const filtered = parsed.posts.filter((p) =>
+            !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) &&
+            !p.slug?.includes('demo') &&
+            p.id !== 'post-1792479277181'
+          );
           return {
             ...parsed,
             posts: filtered.length > 0 ? filtered : DEFAULT_BLOG_POSTS
@@ -2697,7 +2709,15 @@ export default function AdminDashboard({
 
   useEffect(() => {
     if (blogContent && Array.isArray(blogContent.posts)) {
-      setLocalBlogContent(blogContent);
+      const filtered = blogContent.posts.filter((p) =>
+        !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) &&
+        !p.slug?.includes('demo') &&
+        p.id !== 'post-1792479277181'
+      );
+      setLocalBlogContent({
+        ...blogContent,
+        posts: filtered.length > 0 ? filtered : DEFAULT_BLOG_POSTS
+      });
     }
   }, [blogContent]);
 
