@@ -167,6 +167,10 @@ export default function CartDrawer({
     const orderId = `FG-ORD-${Math.floor(100000 + Math.random() * 900000)}`;
     setPlacedOrderRef(orderId);
 
+    const custName = (user?.name || shippingInfo.name || '').trim() || 'Guest Customer';
+    const custEmail = (user?.email || '').trim();
+    const custPhone = (shippingInfo.phone || user?.phone || '').trim();
+
     const newOrder = {
       id: orderId,
       date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
@@ -178,8 +182,12 @@ export default function CartDrawer({
       recipientName: shippingInfo.name,
       recipientPhone: shippingInfo.phone,
       userId: user?.id || null,
-      customerEmail: user?.email || '',
-      customerName: user?.name || shippingInfo.name
+      customerName: custName,
+      customer_name: custName,
+      customerEmail: custEmail,
+      customer_email: custEmail,
+      customerPhone: custPhone,
+      customer_phone: custPhone
     };
 
     onOrderPlaced(newOrder);

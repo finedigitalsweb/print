@@ -3542,8 +3542,13 @@ export default function AdminDashboard({
       if (orderSearch.trim()) {
         const q = orderSearch.toLowerCase();
         const matchId = (ord.id || '').toLowerCase().includes(q);
-        const matchAddr = (ord.shippingAddress || '').toLowerCase().includes(q);
-        return matchId || matchAddr;
+        const matchAddr = (typeof ord.shippingAddress === 'string'
+          ? ord.shippingAddress
+          : JSON.stringify(ord.shippingAddress || '')).toLowerCase().includes(q);
+        const matchCust = (ord.customer_name || ord.customerName || ord.recipientName || '').toLowerCase().includes(q);
+        const matchPhone = (ord.customer_phone || ord.customerPhone || ord.recipientPhone || '').toLowerCase().includes(q);
+        const matchEmail = (ord.customer_email || ord.customerEmail || '').toLowerCase().includes(q);
+        return matchId || matchAddr || matchCust || matchPhone || matchEmail;
       }
       return true;
     });
@@ -4524,7 +4529,7 @@ export default function AdminDashboard({
                     <input
                       type="text"
                       className="admin-search-input"
-                      placeholder="Search Order ID, Address..."
+                      placeholder="Search Order ID, Customer Name, Phone, Address..."
                       value={orderSearch}
                       onChange={(e) => setOrderSearch(e.target.value)}
                     />
@@ -4550,6 +4555,7 @@ export default function AdminDashboard({
                     <thead>
                       <tr>
                         <th>Order ID</th>
+                        <th>Customer</th>
                         <th>Order Date</th>
                         <th>Items &amp; Customization</th>
                         <th>Total</th>
@@ -4562,7 +4568,36 @@ export default function AdminDashboard({
                       {filteredOrders.map((ord) => (
                         <tr key={ord.id}>
                           <td><strong>#{ord.id}</strong></td>
-                          <td>{ord.date}</td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <strong style={{ color: '#0f172a', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <i className="fa-solid fa-circle-user" style={{ color: '#c40b90', fontSize: '14px' }}></i>
+                                <span>{ord.customer_name || ord.customerName || ord.recipientName || 'Guest Customer'}</span>
+                              </strong>
+                              {(ord.customer_phone || ord.customerPhone || ord.recipientPhone) && (
+                                <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <i className="fa-solid fa-phone" style={{ fontSize: '10px' }}></i>
+                                  {ord.customer_phone || ord.customerPhone || ord.recipientPhone}
+                                </span>
+                              )}
+                              {(ord.customer_email || ord.customerEmail) && (
+                                <span style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <i className="fa-regular fa-envelope" style={{ fontSize: '10px' }}></i>
+                                  {ord.customer_email || ord.customerEmail}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '12.5px', color: '#334155', fontWeight: 600 }}>
+                              {ord.date || (ord.created_at ? new Date(ord.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent')}
+                            </div>
+                            {ord.created_at && (
+                              <small style={{ fontSize: '10.5px', color: '#94a3b8', display: 'block' }}>
+                                {new Date(ord.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              </small>
+                            )}
+                          </td>
                           <td>
                             {ord.items?.map((it, idx) => (
                               <div key={idx} style={{ fontSize: '12.5px', marginBottom: '2px' }}>
@@ -12555,6 +12590,32 @@ export default function AdminDashboard({
                   <span className={`admin-badge ${inspectedOrder.status === 'Delivered' ? 'delivered' : 'engraving'}`}>
                     {inspectedOrder.status}
                   </span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px', background: '#fdf2f8', border: '1px solid #fbcfe8', padding: '14px', borderRadius: '12px' }}>
+                <div style={{ fontSize: '11px', color: '#c40b90', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className="fa-solid fa-user-check"></i> Customer Contact Details
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <strong style={{ fontSize: '14.5px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="fa-solid fa-circle-user" style={{ color: '#c40b90' }}></i>
+                      <span>{inspectedOrder.customer_name || inspectedOrder.customerName || inspectedOrder.recipientName || 'Guest Customer'}</span>
+                    </strong>
+                    {(inspectedOrder.customer_email || inspectedOrder.customerEmail) && (
+                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
+                        <i className="fa-regular fa-envelope" style={{ marginRight: '5px' }}></i>
+                        {inspectedOrder.customer_email || inspectedOrder.customerEmail}
+                      </div>
+                    )}
+                  </div>
+                  {(inspectedOrder.customer_phone || inspectedOrder.customerPhone || inspectedOrder.recipientPhone) && (
+                    <div style={{ fontSize: '12.5px', color: '#16a34a', fontWeight: 700, background: '#f0fdf4', padding: '4px 10px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                      <i className="fa-solid fa-phone" style={{ marginRight: '5px' }}></i>
+                      {inspectedOrder.customer_phone || inspectedOrder.customerPhone || inspectedOrder.recipientPhone}
+                    </div>
+                  )}
                 </div>
               </div>
 

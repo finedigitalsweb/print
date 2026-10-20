@@ -359,16 +359,29 @@ app.delete('/api/users/:id', async (req, res) => {
 app.get('/api/orders', async (req, res) => {
   try {
     const orders = await query('SELECT * FROM orders ORDER BY created_at DESC');
-    const parsed = orders.map((o) => ({
-      ...o,
-      items: typeof o.items_json === 'string' ? JSON.parse(o.items_json || '[]') : o.items_json,
-      shippingAddress: typeof o.shipping_address_json === 'string' ? JSON.parse(o.shipping_address_json || '{}') : o.shipping_address_json,
-      trackingProgress: typeof o.tracking_progress_json === 'string'
-        ? (function () {
-            try { return JSON.parse(o.tracking_progress_json); } catch { return null; }
-          })()
-        : (o.tracking_progress_json || null)
-    }));
+    const parsed = orders.map((o) => {
+      const orderDate = o.created_at
+        ? new Date(o.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+        : (o.date || 'Recent');
+      const custName = o.customer_name || o.customerName || 'Guest Customer';
+      return {
+        ...o,
+        date: orderDate,
+        customer_name: custName,
+        customerName: custName,
+        customer_email: o.customer_email || o.customerEmail || '',
+        customerEmail: o.customer_email || o.customerEmail || '',
+        customer_phone: o.customer_phone || o.customerPhone || '',
+        customerPhone: o.customer_phone || o.customerPhone || '',
+        items: typeof o.items_json === 'string' ? JSON.parse(o.items_json || '[]') : o.items_json,
+        shippingAddress: typeof o.shipping_address_json === 'string' ? JSON.parse(o.shipping_address_json || '{}') : o.shipping_address_json,
+        trackingProgress: typeof o.tracking_progress_json === 'string'
+          ? (function () {
+              try { return JSON.parse(o.tracking_progress_json); } catch { return null; }
+            })()
+          : (o.tracking_progress_json || null)
+      };
+    });
     res.json({ success: true, data: parsed });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
