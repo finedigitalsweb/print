@@ -32,10 +32,15 @@ export default function Header({
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const catDropdownRef = useRef(null);
   const headerRef = useRef(null);
 
   const displayCategories = categories && categories.length > 0 ? categories : categoriesData;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Track window scroll to enhance sticky/fixed header styling
   useEffect(() => {
@@ -717,25 +722,26 @@ export default function Header({
     />
 
     {/* Render Mobile Navigation Drawer directly into document.body to ensure it's always centered on visible screen */}
-    {typeof document !== 'undefined' && createPortal(
-      <div
-        className={`mobile-nav-drawer-sheet ${isMobileMenuOpen ? 'drawer-open' : ''}`}
-        aria-hidden={!isMobileMenuOpen}
-      >
-        {/* Backdrop */}
+    {(() => {
+      const drawerMarkup = (
         <div
-          className="mobile-drawer-backdrop"
-          onClick={() => setIsMobileMenuOpen(false)}
-          aria-hidden="true"
-        />
-
-        {/* Off-canvas Panel */}
-        <div
-          className="mobile-drawer-panel"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigation Menu"
+          className={`mobile-nav-drawer-sheet ${isMobileMenuOpen ? 'drawer-open' : ''}`}
+          aria-hidden={!isMobileMenuOpen}
         >
+          {/* Backdrop */}
+          <div
+            className="mobile-drawer-backdrop"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Off-canvas Panel */}
+          <div
+            className="mobile-drawer-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation Menu"
+          >
           {/* 1. Drawer Header */}
           <div className="mobile-drawer-header">
             <div
@@ -1148,7 +1154,13 @@ export default function Header({
           </div>
         </div>
       </div>
-    )}
-  </>
+    );
+
+    if (mounted && typeof document !== 'undefined' && document.body) {
+      return createPortal(drawerMarkup, document.body);
+    }
+    return drawerMarkup;
+  })()}
+</>
 );
 }
