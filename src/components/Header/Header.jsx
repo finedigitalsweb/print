@@ -30,19 +30,42 @@ export default function Header({
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const catDropdownRef = useRef(null);
+  const headerRef = useRef(null);
 
   const displayCategories = categories && categories.length > 0 ? categories : categoriesData;
 
-  // Track window scroll to enhance sticky header styling
+  // Track window scroll to enhance sticky/fixed header styling
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 15);
     };
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Measure exact header height to keep page content seamlessly positioned
+  useEffect(() => {
+    const updateHeight = () => {
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.offsetHeight);
+      }
+    };
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+
+    let ro;
+    if (typeof ResizeObserver !== 'undefined' && headerRef.current) {
+      ro = new ResizeObserver(() => updateHeight());
+      ro.observe(headerRef.current);
+    }
+    return () => {
+      window.removeEventListener('resize', updateHeight);
+      if (ro) ro.disconnect();
+    };
+  }, [headerContent]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -127,7 +150,11 @@ export default function Header({
   };
 
   return (
-    <header className={`main-header-wrapper ${isScrolled ? 'is-sticky-active' : ''}`}>
+    <>
+      <header
+        ref={headerRef}
+        className={`main-header-wrapper ${isScrolled ? 'is-sticky-active' : ''}`}
+      >
       {/* ═════════════════════════════════════════════════════════ */}
       {/* 1. TOP ANNOUNCEMENT & UTILITY BAR (Vivid Magenta)       */}
       {/* ═════════════════════════════════════════════════════════ */}
@@ -1118,6 +1145,13 @@ export default function Header({
           </div>
         </div>
       </div>
-    </header>
+      </header>
+      {/* Spacer to maintain exact flow and prevent layout shift with fixed header */}
+      <div
+        className="header-fixed-spacer"
+        style={{ height: headerHeight > 0 ? `${headerHeight}px` : undefined }}
+        aria-hidden="true"
+      />
+    </>
   );
 }

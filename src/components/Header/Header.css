@@ -14,7 +14,7 @@
 }
 
 .main-header-wrapper {
-  position: sticky;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -26,6 +26,13 @@
   max-width: 100%;
   box-sizing: border-box;
   transition: box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+.header-fixed-spacer {
+  width: 100%;
+  height: 148px;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .main-header-wrapper.is-sticky-active {
@@ -899,12 +906,17 @@
 
 @media (max-width: 1200px) {
   .main-header-wrapper {
-    position: sticky;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
     z-index: 9999;
     max-width: 100%;
+    width: 100%;
+  }
+
+  .header-fixed-spacer {
+    height: 76px;
   }
 
   .desktop-only {

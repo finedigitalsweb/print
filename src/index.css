@@ -43,9 +43,16 @@
 html {
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;
+  scroll-behavior: smooth;
+  scroll-padding-top: 90px;
   overscroll-behavior-x: none;
   -webkit-text-size-adjust: 100%;
+}
+
+@media (min-width: 1201px) {
+  html {
+    scroll-padding-top: 160px;
+  }
 }
 
 body {
@@ -53,7 +60,6 @@ body {
   color: var(--text-dark);
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;
   position: relative;
   overscroll-behavior-x: none;
   -webkit-font-smoothing: antialiased;
@@ -64,6 +70,7 @@ body {
   width: 100%;
   max-width: 100%;
   position: relative;
+  overflow-x: hidden;
 }
 
 a {
