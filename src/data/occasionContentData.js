@@ -30,7 +30,7 @@ export const DEFAULT_OCCASION_DATA = {
 
   // 2. Quick Category Filter Pills
   filterPills: [
-    { id: 'all', label: 'All Engagement Gifts', icon: 'fa-solid fa-shapes' },
+    { id: 'all', label: 'All Gifts', icon: 'fa-solid fa-shapes' },
     { id: 'photo', label: 'Photo Gifts', icon: 'fa-solid fa-image' },
     { id: 'couple', label: 'Couple Gifts', icon: 'fa-solid fa-heart' },
     { id: 'decor', label: 'Home Decor', icon: 'fa-solid fa-house-chimney-window' },

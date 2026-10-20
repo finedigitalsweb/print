@@ -179,19 +179,25 @@ export default function EngagementGiftsPage({
         <section className="engagement-filters-section">
           <div className="container">
             <div className="engagement-filters-scroll">
-              {occasion.filterPills.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`filter-pill-btn ${activeFilter === f.id ? 'active' : ''}`}
-                  onClick={() => setActiveFilter(f.id)}
-                >
-                  <div className="filter-pill-icon-wrap">
-                    <i className={f.icon}></i>
-                  </div>
-                  <span className="filter-pill-label">{f.label}</span>
-                </button>
-              ))}
+              {occasion.filterPills.map((f) => {
+                const isAll = f.id === 'all';
+                const displayLabel = isAll && (f.label === 'All Engagement Gifts' || f.label.toLowerCase().includes('all'))
+                  ? 'All Gifts'
+                  : f.label;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className={`filter-pill-btn ${activeFilter === f.id ? 'active' : ''}`}
+                    onClick={() => setActiveFilter(f.id)}
+                  >
+                    <div className="filter-pill-icon-wrap">
+                      <i className={f.icon}></i>
+                    </div>
+                    <span className="filter-pill-label">{displayLabel}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
