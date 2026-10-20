@@ -1308,8 +1308,14 @@
   .mobile-nav-drawer-sheet {
     display: block !important;
     position: fixed;
-    inset: 0;
-    z-index: 10000;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 999999;
     pointer-events: none;
     visibility: hidden;
     transition: visibility 0.28s ease;
@@ -1323,13 +1329,18 @@
   /* Backdrop Overlay with smooth blur */
   .mobile-drawer-backdrop {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
     background: rgba(15, 23, 42, 0.65);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     opacity: 0;
     transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 10001;
+    z-index: 1;
   }
 
   .mobile-nav-drawer-sheet.drawer-open .mobile-drawer-backdrop {
@@ -1347,7 +1358,7 @@
     height: 100%;
     height: 100dvh;
     background: #ffffff;
-    z-index: 10002;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     box-shadow: 12px 0 35px rgba(0, 0, 0, 0.22);

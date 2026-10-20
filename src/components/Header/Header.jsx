@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './Header.css';
 import { megaMenuData, categoriesData } from '../../data/mockData';
 import {
@@ -706,10 +707,17 @@ export default function Header({
           </nav>
         </div>
       </div>
+    </header>
 
-      {/* ═════════════════════════════════════════════════════════ */}
-      {/* 4. DEDICATED MOBILE NAVIGATION DRAWER (Mobile & Tablet)   */}
-      {/* ═════════════════════════════════════════════════════════ */}
+    {/* Spacer to maintain exact flow and prevent layout shift with fixed header */}
+    <div
+      className="header-fixed-spacer"
+      style={{ height: headerHeight > 0 ? `${headerHeight}px` : undefined }}
+      aria-hidden="true"
+    />
+
+    {/* Render Mobile Navigation Drawer directly into document.body to ensure it's always centered on visible screen */}
+    {typeof document !== 'undefined' && createPortal(
       <div
         className={`mobile-nav-drawer-sheet ${isMobileMenuOpen ? 'drawer-open' : ''}`}
         aria-hidden={!isMobileMenuOpen}
@@ -1145,13 +1153,7 @@ export default function Header({
           </div>
         </div>
       </div>
-      </header>
-      {/* Spacer to maintain exact flow and prevent layout shift with fixed header */}
-      <div
-        className="header-fixed-spacer"
-        style={{ height: headerHeight > 0 ? `${headerHeight}px` : undefined }}
-        aria-hidden="true"
-      />
-    </>
-  );
+    )}
+  </>
+);
 }
