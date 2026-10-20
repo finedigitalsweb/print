@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS categories (
   name VARCHAR(150) NOT NULL UNIQUE,
   slug VARCHAR(150) DEFAULT NULL,
   icon VARCHAR(100) DEFAULT 'fa-solid fa-gift',
-  subcategories VARCHAR(255) DEFAULT NULL,
+  subcategories TEXT DEFAULT NULL,
   image_url LONGTEXT DEFAULT NULL,
   item_count INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS products (
   name VARCHAR(255) NOT NULL,
   cat_name VARCHAR(150) NOT NULL,
   sub_cat_name VARCHAR(150) DEFAULT NULL,
+  sub_sub_cat_name VARCHAR(150) DEFAULT NULL,
   price DECIMAL(10, 2) NOT NULL,
   old_price DECIMAL(10, 2) DEFAULT 0.00,
   rating DECIMAL(3, 1) DEFAULT 4.8,

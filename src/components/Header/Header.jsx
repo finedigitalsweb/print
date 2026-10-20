@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import './Header.css';
 import { megaMenuData, categoriesData } from '../../data/mockData';
+import { getSubcategoryNames } from '../../utils/categoryUtils';
 import {
   DEFAULT_HEADER_NAV_ITEMS,
   DEFAULT_OCCASION_MENU_DATA,
@@ -534,12 +535,8 @@ export default function Header({
                       <div className="mega-dropdown-menu category-mega-menu">
                         <div className="mega-grid-categories">
                           {displayCategories.map((cat) => {
-                            let subList = [];
-                            if (Array.isArray(cat.subcategories)) {
-                              subList = cat.subcategories;
-                            } else if (typeof cat.subcategories === 'string' && cat.subcategories.trim()) {
-                              subList = cat.subcategories.split(',').map((s) => s.trim()).filter(Boolean);
-                            } else if ((cat.name || '').toLowerCase() === 'infants') {
+                            let subList = getSubcategoryNames(cat);
+                            if ((cat.name || '').toLowerCase() === 'infants' && subList.length === 0) {
                               subList = ['Boys', 'Girls'];
                             }
 

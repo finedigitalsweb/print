@@ -24,6 +24,8 @@ function formatProduct(p) {
   const stockNum = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
   return {
     ...p,
+    sub_cat_name: p.sub_cat_name || null,
+    sub_sub_cat_name: p.sub_sub_cat_name || null,
     price: Number(p.price) || 0,
     old_price: Number(p.old_price) || 0,
     rating: Number(p.rating) || 4.8,
@@ -70,13 +72,14 @@ app.post('/api/products', async (req, res) => {
     const id = p.id || `prod_${Date.now()}`;
     const stockVal = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
     await query(
-      `INSERT INTO products (id, name, cat_name, sub_cat_name, price, old_price, rating, reviews_count, image_url, fallback_image_url, badge, material, description, in_stock, stock, show_on_home)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (id, name, cat_name, sub_cat_name, sub_sub_cat_name, price, old_price, rating, reviews_count, image_url, fallback_image_url, badge, material, description, in_stock, stock, show_on_home)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         p.name,
         p.cat_name || 'Infants',
         p.sub_cat_name || null,
+        p.sub_sub_cat_name || null,
         Number(p.price) || 0,
         Number(p.old_price) || 0,
         Number(p.rating) || 4.8,
@@ -106,13 +109,14 @@ app.put('/api/products/:id', async (req, res) => {
     const stockVal = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
     await query(
       `UPDATE products SET
-         name = ?, cat_name = ?, sub_cat_name = ?, price = ?, old_price = ?,
+         name = ?, cat_name = ?, sub_cat_name = ?, sub_sub_cat_name = ?, price = ?, old_price = ?,
          image_url = ?, badge = ?, material = ?, description = ?, in_stock = ?, stock = ?, show_on_home = ?
        WHERE id = ?`,
       [
         p.name,
         p.cat_name,
         p.sub_cat_name || null,
+        p.sub_sub_cat_name || null,
         Number(p.price) || 0,
         Number(p.old_price) || 0,
         p.image_url,

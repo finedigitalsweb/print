@@ -703,6 +703,7 @@ export default function App() {
   // Shop filter state for cross-component navigation
   const [shopCategory, setShopCategory] = useState('all');
   const [shopSubCategory, setShopSubCategory] = useState('all');
+  const [shopSubSubCategory, setShopSubSubCategory] = useState('all');
   const [shopSearchQuery, setShopSearchQuery] = useState('');
 
   const handleOpenAuth = (tab = 'login') => {
@@ -1149,13 +1150,17 @@ export default function App() {
         if (queryPart) {
           const params = new URLSearchParams(queryPart);
           const sub = params.get('sub');
+          const subsub = params.get('subsub');
           setShopSubCategory(sub ? decodeURIComponent(sub) : 'all');
+          setShopSubSubCategory(subsub ? decodeURIComponent(subsub) : 'all');
         } else {
           setShopSubCategory('all');
+          setShopSubSubCategory('all');
         }
       } else {
         setShopCategory('all');
         setShopSubCategory('all');
+        setShopSubSubCategory('all');
       }
       setCurrentPage('shop');
       try { window.history.pushState({}, '', '/shop'); } catch {}
@@ -1329,6 +1334,7 @@ export default function App() {
           showNotification={showNotification}
           initialCategory={shopCategory}
           initialSubCategory={shopSubCategory}
+          initialSubSubCategory={shopSubSubCategory}
           initialSearchQuery={shopSearchQuery}
         />
       ) : currentPage === 'dashboard' ? (

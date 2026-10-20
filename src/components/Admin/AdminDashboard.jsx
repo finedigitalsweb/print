@@ -15,6 +15,13 @@ import {
 } from '../../data/headerFooterData';
 import { DEFAULT_OCCASION_DATA, OCCASION_PRESET_TEMPLATES, DEFAULT_OCCASIONS_STATE } from '../../data/occasionContentData';
 import { DEFAULT_BLOG_CONTENT } from '../../data/blogData';
+import {
+  parseCategoryHierarchy,
+  serializeCategoryHierarchy,
+  getSubcategoryNames,
+  getLevel2Subcategories,
+  hasLevel2Subcategories
+} from '../../utils/categoryUtils';
 import OccasionsCmsTab from './OccasionsCmsTab';
 import BlogCmsTab from './BlogCmsTab';
 import {
@@ -354,6 +361,8 @@ export default function AdminDashboard({
     subcategories: '',
     image_url: '/assets/images/cups-product.avif'
   });
+  const [categoryHierarchy, setCategoryHierarchy] = useState([]);
+  const [useHierarchyTextMode, setUseHierarchyTextMode] = useState(false);
 
   // ── 4. STATE FOR ORDERS ───────────────────────────────────────────────
   const [localOrders, setLocalOrders] = useState(() => {
@@ -1014,6 +1023,7 @@ export default function AdminDashboard({
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
   const [productSubCategoryFilter, setProductSubCategoryFilter] = useState('all');
+  const [productSubSubCategoryFilter, setProductSubSubCategoryFilter] = useState('all');
   const [productStockFilter, setProductStockFilter] = useState('all'); // 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
   const [productSortBy, setProductSortBy] = useState('default'); // 'default' | 'a-z' | 'z-a' | 'price-asc' | 'price-desc'
 
@@ -1024,6 +1034,7 @@ export default function AdminDashboard({
     name: '',
     cat_name: 'Infants',
     sub_cat_name: '',
+    sub_sub_cat_name: '',
     price: 499,
     old_price: 799,
     stock: 30,
@@ -2774,6 +2785,7 @@ export default function AdminDashboard({
       name: '',
       cat_name: localCategories[0]?.name || 'Infants',
       sub_cat_name: '',
+      sub_sub_cat_name: '',
       price: 499,
       old_price: 799,
       stock: 30,
@@ -2796,6 +2808,7 @@ export default function AdminDashboard({
       name: prod.name || '',
       cat_name: prod.cat_name || 'Infants',
       sub_cat_name: prod.sub_cat_name || '',
+      sub_sub_cat_name: prod.sub_sub_cat_name || '',
       price: prod.price || 0,
       old_price: prod.old_price || 0,
       stock: stockCount,
@@ -2825,6 +2838,7 @@ export default function AdminDashboard({
       ...(editingProduct || {}),
       ...productFormData,
       sub_cat_name: productFormData.sub_cat_name ? productFormData.sub_cat_name.trim() : null,
+      sub_sub_cat_name: productFormData.sub_sub_cat_name ? productFormData.sub_sub_cat_name.trim() : null,
       price: Number(productFormData.price),
       old_price: Number(productFormData.old_price),
       stock: stockQty,
@@ -2924,8 +2938,57 @@ export default function AdminDashboard({
   };
 
   // ── 9B. CATEGORY CRUD ACTIONS ─────────────────────────────────────────
+  // Subcategory Hierarchy Handlers for Category Modal
+  const handleAddLevel1 = (name) => {
+    if (!name || !name.trim()) return;
+    const cleanName = name.trim();
+    if (categoryHierarchy.some((h) => h.name.toLowerCase() === cleanName.toLowerCase())) {
+      showNotification('warning', 'Already Exists', `Subcategory "${cleanName}" is already added.`);
+      return;
+    }
+    const updated = [...categoryHierarchy, { name: cleanName, subcategories: [] }];
+    setCategoryHierarchy(updated);
+    setCategoryFormData((prev) => ({ ...prev, subcategories: serializeCategoryHierarchy(updated) || '' }));
+  };
+
+  const handleRemoveLevel1 = (index) => {
+    const updated = categoryHierarchy.filter((_, i) => i !== index);
+    setCategoryHierarchy(updated);
+    setCategoryFormData((prev) => ({ ...prev, subcategories: serializeCategoryHierarchy(updated) || '' }));
+  };
+
+  const handleUpdateLevel1Name = (index, newName) => {
+    const updated = [...categoryHierarchy];
+    updated[index].name = newName;
+    setCategoryHierarchy(updated);
+    setCategoryFormData((prev) => ({ ...prev, subcategories: serializeCategoryHierarchy(updated) || '' }));
+  };
+
+  const handleAddLevel2 = (parentIndex, childName) => {
+    if (!childName || !childName.trim()) return;
+    const cleanChild = childName.trim();
+    const updated = [...categoryHierarchy];
+    const currentChildren = updated[parentIndex].subcategories || [];
+    if (currentChildren.some((c) => c.toLowerCase() === cleanChild.toLowerCase())) {
+      showNotification('warning', 'Already Exists', `Level 2 subcategory "${cleanChild}" already exists under ${updated[parentIndex].name}.`);
+      return;
+    }
+    updated[parentIndex].subcategories = [...currentChildren, cleanChild];
+    setCategoryHierarchy(updated);
+    setCategoryFormData((prev) => ({ ...prev, subcategories: serializeCategoryHierarchy(updated) || '' }));
+  };
+
+  const handleRemoveLevel2 = (parentIndex, childIndex) => {
+    const updated = [...categoryHierarchy];
+    updated[parentIndex].subcategories = updated[parentIndex].subcategories.filter((_, i) => i !== childIndex);
+    setCategoryHierarchy(updated);
+    setCategoryFormData((prev) => ({ ...prev, subcategories: serializeCategoryHierarchy(updated) || '' }));
+  };
+
   const handleOpenAddCategory = () => {
     setEditingCategory(null);
+    setCategoryHierarchy([]);
+    setUseHierarchyTextMode(false);
     setCategoryFormData({
       name: '',
       icon: 'fa-solid fa-gift',
@@ -2938,7 +3001,10 @@ export default function AdminDashboard({
 
   const handleOpenEditCategory = (cat) => {
     setEditingCategory(cat);
-    const subStr = Array.isArray(cat.subcategories) ? cat.subcategories.join(', ') : (cat.subcategories || '');
+    const parsedHierarchy = parseCategoryHierarchy(cat.subcategories);
+    setCategoryHierarchy(parsedHierarchy);
+    setUseHierarchyTextMode(false);
+    const subStr = serializeCategoryHierarchy(parsedHierarchy) || (Array.isArray(cat.subcategories) ? cat.subcategories.join(', ') : (cat.subcategories || ''));
     setCategoryFormData({
       name: cat.name || '',
       icon: cat.icon || 'fa-solid fa-gift',
@@ -2990,7 +3056,8 @@ export default function AdminDashboard({
       return;
     }
 
-    const subStr = categoryFormData.subcategories && categoryFormData.subcategories.trim() ? categoryFormData.subcategories.trim() : null;
+    const hierarchyStr = serializeCategoryHierarchy(categoryHierarchy);
+    const subStr = hierarchyStr !== null ? hierarchyStr : (categoryFormData.subcategories && categoryFormData.subcategories.trim() ? categoryFormData.subcategories.trim() : null);
     const imgUrl = categoryFormData.image_url && categoryFormData.image_url.trim() ? categoryFormData.image_url.trim() : '/assets/images/cups-product.avif';
 
     const categoryPayload = {
@@ -3586,13 +3653,37 @@ export default function AdminDashboard({
     }
     const catObj = localCategories.find((c) => c.name.toLowerCase() === productCategoryFilter.toLowerCase());
     if (!catObj) return [];
-    if (Array.isArray(catObj.subcategories)) return catObj.subcategories;
-    if (typeof catObj.subcategories === 'string' && catObj.subcategories.trim()) {
-      return catObj.subcategories.split(',').map((s) => s.trim()).filter(Boolean);
-    }
-    if (catObj.name.toLowerCase() === 'infants') return ['Boys', 'Girls'];
-    return [];
+    return getSubcategoryNames(catObj);
   }, [localCategories, localProducts, productCategoryFilter]);
+
+  // Available Level 2 Subcategories for Admin toolbar filter
+  const adminAvailableSubSubcategories = useMemo(() => {
+    if (productSubCategoryFilter === 'all') {
+      if (productCategoryFilter === 'all') return [];
+      const set = new Set();
+      localProducts.forEach((p) => {
+        if (p.cat_name?.toLowerCase() === productCategoryFilter.toLowerCase() && p.sub_sub_cat_name) {
+          set.add(p.sub_sub_cat_name);
+        }
+      });
+      return Array.from(set);
+    }
+    const catObj = localCategories.find((c) => c.name.toLowerCase() === productCategoryFilter.toLowerCase());
+    const l2List = catObj ? getLevel2Subcategories(catObj, productSubCategoryFilter) : [];
+    if (l2List.length > 0) return l2List;
+    // Fallback: check existing products
+    const set = new Set();
+    localProducts.forEach((p) => {
+      if (
+        (productCategoryFilter === 'all' || p.cat_name?.toLowerCase() === productCategoryFilter.toLowerCase()) &&
+        p.sub_cat_name?.toLowerCase() === productSubCategoryFilter.toLowerCase() &&
+        p.sub_sub_cat_name
+      ) {
+        set.add(p.sub_sub_cat_name);
+      }
+    });
+    return Array.from(set);
+  }, [localCategories, localProducts, productCategoryFilter, productSubCategoryFilter]);
 
   const filteredProducts = useMemo(() => {
     return localProducts.filter((prod) => {
@@ -3603,6 +3694,10 @@ export default function AdminDashboard({
       if (productSubCategoryFilter !== 'all') {
         const subMatch = (prod.sub_cat_name || '').toLowerCase() === productSubCategoryFilter.toLowerCase();
         if (!subMatch) return false;
+      }
+      if (productSubSubCategoryFilter !== 'all') {
+        const subSubMatch = (prod.sub_sub_cat_name || '').toLowerCase() === productSubSubCategoryFilter.toLowerCase();
+        if (!subSubMatch) return false;
       }
       if (productStockFilter !== 'all') {
         const isOut = prod.in_stock === false || (prod.stock !== undefined && prod.stock !== null && Number(prod.stock) <= 0);
@@ -3616,7 +3711,8 @@ export default function AdminDashboard({
         return (
           (prod.name || '').toLowerCase().includes(q) ||
           (prod.cat_name || '').toLowerCase().includes(q) ||
-          (prod.sub_cat_name || '').toLowerCase().includes(q)
+          (prod.sub_cat_name || '').toLowerCase().includes(q) ||
+          (prod.sub_sub_cat_name || '').toLowerCase().includes(q)
         );
       }
       return true;
@@ -3627,7 +3723,7 @@ export default function AdminDashboard({
       if (productSortBy === 'price-desc') return (b.price || 0) - (a.price || 0);
       return 0;
     });
-  }, [localProducts, productCategoryFilter, productSubCategoryFilter, productStockFilter, productSearch, productSortBy]);
+  }, [localProducts, productCategoryFilter, productSubCategoryFilter, productSubSubCategoryFilter, productStockFilter, productSearch, productSortBy]);
 
   // ── 12B. CUSTOMER MANAGEMENT CRUD HANDLERS ────────────────────────────
   const saveCustomersList = (updatedList) => {
@@ -4708,6 +4804,7 @@ export default function AdminDashboard({
                       onChange={(e) => {
                         setProductCategoryFilter(e.target.value);
                         setProductSubCategoryFilter('all');
+                        setProductSubSubCategoryFilter('all');
                       }}
                     >
                       <option value="all">All Categories</option>
@@ -4720,12 +4817,29 @@ export default function AdminDashboard({
                       <select
                         className="admin-filter-select"
                         value={productSubCategoryFilter}
-                        onChange={(e) => setProductSubCategoryFilter(e.target.value)}
+                        onChange={(e) => {
+                          setProductSubCategoryFilter(e.target.value);
+                          setProductSubSubCategoryFilter('all');
+                        }}
                         style={{ border: '1px solid #c40b90', color: '#c40b90', fontWeight: 600 }}
                       >
                         <option value="all">All Subcategories</option>
                         {adminAvailableSubcategories.map((sub) => (
                           <option key={sub} value={sub}>{sub}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {adminAvailableSubSubcategories.length > 0 && (
+                      <select
+                        className="admin-filter-select"
+                        value={productSubSubCategoryFilter}
+                        onChange={(e) => setProductSubSubCategoryFilter(e.target.value)}
+                        style={{ border: '1px solid #6366f1', color: '#4f46e5', fontWeight: 600 }}
+                      >
+                        <option value="all">All Level 2 Subcategories</option>
+                        {adminAvailableSubSubcategories.map((l2) => (
+                          <option key={l2} value={l2}>{l2}</option>
                         ))}
                       </select>
                     )}
@@ -4758,6 +4872,25 @@ export default function AdminDashboard({
                       <option value="low_stock">🟡 Low Stock (&le; 5)</option>
                       <option value="out_of_stock">🔴 Out of Stock (0)</option>
                     </select>
+
+                    {(productSearch || productCategoryFilter !== 'all' || productSubCategoryFilter !== 'all' || productSubSubCategoryFilter !== 'all' || productStockFilter !== 'all' || productSortBy !== 'default') && (
+                      <button
+                        type="button"
+                        className="admin-btn-secondary"
+                        onClick={() => {
+                          setProductSearch('');
+                          setProductCategoryFilter('all');
+                          setProductSubCategoryFilter('all');
+                          setProductSubSubCategoryFilter('all');
+                          setProductStockFilter('all');
+                          setProductSortBy('default');
+                        }}
+                        style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+                        title="Clear all filters"
+                      >
+                        <i className="fa-solid fa-xmark"></i> Reset Filters
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -4827,12 +4960,20 @@ export default function AdminDashboard({
                           </td>
                           <td>
                             <div style={{ fontWeight: 600, color: '#0f172a' }}>{p.cat_name || 'Gift Studio'}</div>
-                            {p.sub_cat_name && (
-                              <span style={{ display: 'inline-block', marginTop: '3px', background: '#fdf2f8', border: '1px solid #fbcfe8', color: '#c40b90', borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: 700 }}>
-                                <i className="fa-solid fa-tag" style={{ fontSize: '9px', marginRight: '3px' }}></i>
-                                {p.sub_cat_name}
-                              </span>
-                            )}
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '3px' }}>
+                              {p.sub_cat_name && (
+                                <span style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', color: '#c40b90', borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: 700 }} title="Level 1 Subcategory">
+                                  <i className="fa-solid fa-tag" style={{ fontSize: '9px', marginRight: '3px' }}></i>
+                                  {p.sub_cat_name}
+                                </span>
+                              )}
+                              {p.sub_sub_cat_name && (
+                                <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: 700 }} title="Level 2 Subcategory">
+                                  <i className="fa-solid fa-layer-group" style={{ fontSize: '9px', marginRight: '3px' }}></i>
+                                  {p.sub_sub_cat_name}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td>
                             <strong>₹{p.price}</strong>
@@ -4978,17 +5119,34 @@ export default function AdminDashboard({
                               <strong>{cat.name}</strong>
                             </td>
                             <td>
-                              {cat.subcategories ? (
-                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                  {(typeof cat.subcategories === 'string' ? cat.subcategories.split(',') : cat.subcategories).map((sub, idx) => (
-                                    <span key={idx} style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', color: '#c40b90', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: 600 }}>
-                                      {sub.trim()}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span style={{ color: '#94a3b8', fontSize: '11.5px', fontStyle: 'italic' }}>None (Direct)</span>
-                              )}
+                              {(() => {
+                                const hierarchy = parseCategoryHierarchy(cat.subcategories);
+                                if (hierarchy.length === 0) {
+                                  return <span style={{ color: '#94a3b8', fontSize: '11.5px', fontStyle: 'italic' }}>None (Direct)</span>;
+                                }
+                                return (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {hierarchy.map((subItem, idx) => (
+                                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <span style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', color: '#c40b90', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>
+                                          <i className="fa-solid fa-tag" style={{ fontSize: '9px', marginRight: '3px' }}></i>
+                                          {subItem.name}
+                                        </span>
+                                        {subItem.subcategories && subItem.subcategories.length > 0 && (
+                                          <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '10px', color: '#94a3b8' }}>↳</span>
+                                            {subItem.subcategories.map((l2, l2i) => (
+                                              <span key={l2i} style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: '8px', padding: '1px 6px', fontSize: '10px', fontWeight: 600 }}>
+                                                {l2}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td>
                               <i className={cat.icon} style={{ color: '#c40b90', marginRight: '6px' }}></i>
@@ -12188,7 +12346,8 @@ export default function AdminDashboard({
                         setProductFormData({
                           ...productFormData,
                           cat_name: newCat,
-                          sub_cat_name: ''
+                          sub_cat_name: '',
+                          sub_sub_cat_name: ''
                         });
                       }}
                     >
@@ -12200,34 +12359,75 @@ export default function AdminDashboard({
 
                   {(() => {
                     const selCat = localCategories.find((c) => c.name.toLowerCase() === (productFormData.cat_name || '').toLowerCase());
-                    let subList = [];
-                    if (selCat) {
-                      if (Array.isArray(selCat.subcategories)) {
-                        subList = selCat.subcategories;
-                      } else if (typeof selCat.subcategories === 'string' && selCat.subcategories.trim()) {
-                        subList = selCat.subcategories.split(',').map((s) => s.trim()).filter(Boolean);
-                      }
-                    }
+                    let subList = selCat ? getSubcategoryNames(selCat) : [];
                     if ((productFormData.cat_name || '').toLowerCase() === 'infants' && subList.length === 0) {
                       subList = ['Boys', 'Girls'];
                     }
 
                     if (subList.length > 0) {
+                      const level2List = selCat && productFormData.sub_cat_name
+                        ? getLevel2Subcategories(selCat, productFormData.sub_cat_name)
+                        : [];
+
                       return (
-                        <div className="admin-form-group">
-                          <label>Subcategory <span style={{ color: '#c40b90', fontWeight: 'bold' }}>*</span></label>
-                          <select
-                            className="admin-form-select"
-                            value={productFormData.sub_cat_name || ''}
-                            onChange={(e) => setProductFormData({ ...productFormData, sub_cat_name: e.target.value })}
-                            style={{ borderColor: '#c40b90' }}
-                          >
-                            <option value="">-- Select Subcategory --</option>
-                            {subList.map((sub) => (
-                              <option key={sub} value={sub}>{sub}</option>
-                            ))}
-                          </select>
-                        </div>
+                        <>
+                          <div className="admin-form-group">
+                            <label>Subcategory (Level 1) <span style={{ color: '#c40b90', fontWeight: 'bold' }}>*</span></label>
+                            <select
+                              className="admin-form-select"
+                              value={productFormData.sub_cat_name || ''}
+                              onChange={(e) => setProductFormData({
+                                ...productFormData,
+                                sub_cat_name: e.target.value,
+                                sub_sub_cat_name: ''
+                              })}
+                              style={{ borderColor: '#c40b90' }}
+                            >
+                              <option value="">-- Select Subcategory --</option>
+                              {subList.map((sub) => (
+                                <option key={sub} value={sub}>{sub}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {productFormData.sub_cat_name && (
+                            <div className="admin-form-group">
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <label style={{ margin: 0 }}>
+                                  Level 2 Subcategory (Sub-subcategory)
+                                </label>
+                                <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600 }}>
+                                  {level2List.length > 0 ? `${level2List.length} options configured` : 'Optional'}
+                                </span>
+                              </div>
+                              {level2List.length > 0 ? (
+                                <select
+                                  className="admin-form-select"
+                                  value={productFormData.sub_sub_cat_name || ''}
+                                  onChange={(e) => setProductFormData({ ...productFormData, sub_sub_cat_name: e.target.value })}
+                                  style={{ borderColor: '#6366f1', color: '#1e1b4b' }}
+                                >
+                                  <option value="">-- Select Level 2 Subcategory (Optional) --</option>
+                                  {level2List.map((l2) => (
+                                    <option key={l2} value={l2}>{l2}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  className="admin-form-input"
+                                  placeholder="e.g. 0-6 Months, Leather, Miniature (Optional)"
+                                  value={productFormData.sub_sub_cat_name || ''}
+                                  onChange={(e) => setProductFormData({ ...productFormData, sub_sub_cat_name: e.target.value })}
+                                  style={{ borderColor: productFormData.sub_sub_cat_name ? '#6366f1' : undefined }}
+                                />
+                              )}
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+                                Second-level child subcategory under <strong>{productFormData.sub_cat_name}</strong>.
+                              </div>
+                            </div>
+                          )}
+                        </>
                       );
                     }
                     return null;
@@ -13541,40 +13741,213 @@ export default function AdminDashboard({
       {/* ── MODAL: ADD / EDIT CATEGORY ─────────────────────────── */}
       {isCategoryModalOpen && (
         <div className="admin-modal-backdrop" onClick={() => setIsCategoryModalOpen(false)}>
-          <div className="admin-modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
-            <div className="admin-modal-header">
-              <h3>{editingCategory ? 'Edit Store Category' : 'Create New Gift Category'}</h3>
+          <div className="admin-modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="admin-modal-header" style={{ flexShrink: 0 }}>
+              <h3>{editingCategory ? 'Edit Store Category & Hierarchy' : 'Create New Gift Category'}</h3>
               <button type="button" className="admin-modal-close-btn" onClick={() => setIsCategoryModalOpen(false)}>
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory}>
-              <div className="admin-modal-body">
+            <form onSubmit={handleSaveCategory} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <div className="admin-modal-body" style={{ flex: 1, overflowY: 'auto' }}>
                 <div className="admin-form-group" style={{ marginBottom: '16px' }}>
                   <label>Category Title *</label>
                   <input
                     type="text"
                     className="admin-form-input"
                     required
-                    placeholder="e.g. Wooden Engravings, Keychains, Hampers"
+                    placeholder="e.g. Wooden Engravings, Infants, Hampers"
                     value={categoryFormData.name}
                     onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
                   />
                 </div>
 
-                <div className="admin-form-group" style={{ marginBottom: '16px' }}>
-                  <label>Subcategories (Optional, comma-separated)</label>
-                  <input
-                    type="text"
-                    className="admin-form-input"
-                    placeholder="e.g. Boys, Girls (Leave empty if no subcategories)"
-                    value={categoryFormData.subcategories || ''}
-                    onChange={(e) => setCategoryFormData({ ...categoryFormData, subcategories: e.target.value })}
-                  />
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                    Separate multiple subcategories with commas (e.g. <code>Boys, Girls</code> for Infants). Leave blank if not required.
+                {/* ── 3-LEVEL CATEGORY HIERARCHY BUILDER ── */}
+                <div className="admin-form-group" style={{ marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ margin: 0, fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>
+                      Subcategories &amp; Level 2 Child Subcategories (Optional)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setUseHierarchyTextMode(!useHierarchyTextMode)}
+                      style={{ background: 'none', border: 'none', color: '#c40b90', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      {useHierarchyTextMode ? '⚡ Switch to Visual Builder' : '📝 Text / Comma Mode'}
+                    </button>
                   </div>
+
+                  {!useHierarchyTextMode ? (
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px' }}>
+                      {/* Existing Level 1 Subcategories */}
+                      {categoryHierarchy.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '14px 8px', color: '#94a3b8', fontSize: '12.5px' }}>
+                          No subcategories added yet. Type below to add Level 1 subcategories (e.g. Boys, Girls).
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                          {categoryHierarchy.map((subItem, sIdx) => (
+                            <div
+                              key={sIdx}
+                              style={{
+                                background: '#ffffff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                padding: '10px 12px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                              }}
+                            >
+                              {/* Level 1 Header */}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                  <span style={{ background: '#fdf2f8', color: '#c40b90', border: '1px solid #fbcfe8', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: 800 }}>
+                                    Level 1
+                                  </span>
+                                  <input
+                                    type="text"
+                                    value={subItem.name}
+                                    placeholder="Subcategory Name (e.g. Boys)"
+                                    onChange={(e) => handleUpdateLevel1Name(sIdx, e.target.value)}
+                                    style={{ border: '1px solid transparent', background: 'transparent', fontWeight: 700, fontSize: '13.5px', color: '#0f172a', outline: 'none', padding: '2px 6px', borderRadius: '6px', flex: 1 }}
+                                    onFocus={(e) => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#cbd5e1'; }}
+                                    onBlur={(e) => { e.target.style.background = 'transparent'; e.target.style.borderColor = 'transparent'; }}
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  title="Remove this Subcategory"
+                                  onClick={() => handleRemoveLevel1(sIdx)}
+                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '13px', padding: '4px' }}
+                                >
+                                  <i className="fa-regular fa-trash-can"></i>
+                                </button>
+                              </div>
+
+                              {/* Level 2 Subcategories Container */}
+                              <div style={{ paddingLeft: '12px', borderLeft: '2.5px solid #fbcfe8', marginTop: '6px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#7d2091', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <i className="fa-solid fa-layer-group" style={{ fontSize: '10px' }}></i>
+                                  Level 2 Subcategories ({subItem.subcategories.length})
+                                </div>
+
+                                {/* Level 2 Chips */}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px' }}>
+                                  {subItem.subcategories.map((l2, l2Idx) => (
+                                    <span
+                                      key={l2Idx}
+                                      style={{
+                                        background: '#eff6ff',
+                                        border: '1px solid #bfdbfe',
+                                        color: '#1d4ed8',
+                                        borderRadius: '20px',
+                                        padding: '2px 9px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                      }}
+                                    >
+                                      <span>{l2}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveLevel2(sIdx, l2Idx)}
+                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0, fontSize: '12px', lineHeight: 1 }}
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  ))}
+                                  {subItem.subcategories.length === 0 && (
+                                    <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                      No Level 2 subcategories added.
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Add Level 2 Input */}
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  <input
+                                    type="text"
+                                    id={`new-l2-${sIdx}`}
+                                    placeholder="Add Level 2 item (e.g. 0-6 Months, Dresses)"
+                                    style={{ flex: 1, padding: '5px 10px', fontSize: '11.5px', border: '1px solid #cbd5e1', borderRadius: '8px', outline: 'none' }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleAddLevel2(sIdx, e.target.value);
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const input = document.getElementById(`new-l2-${sIdx}`);
+                                      if (input && input.value) {
+                                        handleAddLevel2(sIdx, input.value);
+                                        input.value = '';
+                                      }
+                                    }}
+                                    style={{ background: '#7d2091', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '5px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                                  >
+                                    + Add Level 2
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add New Level 1 Subcategory */}
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="text"
+                          id="new-level1-subcat-input"
+                          placeholder="Add Level 1 Subcategory (e.g. Boys, Girls, Corporate)"
+                          style={{ flex: 1, padding: '7px 10px', fontSize: '12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', outline: 'none' }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddLevel1(e.target.value);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById('new-level1-subcat-input');
+                            if (input && input.value) {
+                              handleAddLevel1(input.value);
+                              input.value = '';
+                            }
+                          }}
+                          style={{ background: '#c40b90', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '7px 12px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          <i className="fa-solid fa-plus" style={{ marginRight: '4px' }}></i> Add Subcategory
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="text"
+                        className="admin-form-input"
+                        placeholder="e.g. Boys (0-6 Months, 6-12 Months), Girls (Dresses, Sets)"
+                        value={categoryFormData.subcategories || ''}
+                        onChange={(e) => {
+                          setCategoryFormData({ ...categoryFormData, subcategories: e.target.value });
+                          setCategoryHierarchy(parseCategoryHierarchy(e.target.value));
+                        }}
+                      />
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                        Supports comma-separated <code>Boys, Girls</code> or hierarchical syntax <code>Boys (0-6M, 6-12M), Girls</code>.
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="admin-form-group" style={{ marginBottom: '16px' }}>

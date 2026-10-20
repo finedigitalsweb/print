@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import './ShopPage.css';
 import { categoriesData, productsData as initialProducts } from '../../data/mockData';
+import { getSubcategoryNames, getLevel2Subcategories } from '../../utils/categoryUtils';
 
 // Extended catalog with rich attributes for realistic filtering and quick view
 const EXTENDED_CATALOG = [
@@ -575,12 +576,14 @@ export default function ShopPage({
   showNotification,
   initialCategory = 'all',
   initialSubCategory = 'all',
+  initialSubSubCategory = 'all',
   initialSearchQuery = ''
 }) {
   // ── 1. FILTER & SEARCH STATES ──────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [selectedCategory, setSelectedCategory] = useState(initialCategory || 'all');
   const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory || 'all');
+  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState(initialSubSubCategory || 'all');
   const [priceBracket, setPriceBracket] = useState('all'); // 'all' | 'under-500' | '500-1000' | '1000-2000' | 'above-2000'
   const [selectedOccasions, setSelectedOccasions] = useState([]);
   const [selectedMaterial, setSelectedMaterial] = useState('All');
@@ -610,7 +613,12 @@ export default function ShopPage({
     } else {
       setSelectedSubCategory('all');
     }
-  }, [initialCategory, initialSubCategory]);
+    if (initialSubSubCategory) {
+      setSelectedSubSubCategory(initialSubSubCategory);
+    } else {
+      setSelectedSubSubCategory('all');
+    }
+  }, [initialCategory, initialSubCategory, initialSubSubCategory]);
 
   useEffect(() => {
     if (initialSearchQuery !== undefined) {
@@ -624,6 +632,7 @@ export default function ShopPage({
   }, [
     selectedCategory,
     selectedSubCategory,
+    selectedSubSubCategory,
     searchQuery,
     priceBracket,
     selectedOccasions,
@@ -635,28 +644,32 @@ export default function ShopPage({
     itemsPerPage
   ]);
 
-  // Available subcategories for the active category (e.g. Infants -> Boys, Girls)
+  // Available Level 1 subcategories for the active category (e.g. Infants -> Boys, Girls)
   const availableSubcategories = useMemo(() => {
     if (selectedCategory === 'all') return [];
     const catObj = categories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase());
     if (!catObj) return [];
-    if (Array.isArray(catObj.subcategories)) {
-      return catObj.subcategories;
-    }
-    if (typeof catObj.subcategories === 'string' && catObj.subcategories.trim()) {
-      return catObj.subcategories.split(',').map((s) => s.trim()).filter(Boolean);
-    }
-    if (catObj.name.toLowerCase() === 'infants') {
+    const names = getSubcategoryNames(catObj);
+    if (catObj.name.toLowerCase() === 'infants' && names.length === 0) {
       return ['Boys', 'Girls'];
     }
-    return [];
+    return names;
   }, [categories, selectedCategory]);
+
+  // Available Level 2 subcategories for the active category & subcategory
+  const availableLevel2Subcategories = useMemo(() => {
+    if (selectedCategory === 'all' || selectedSubCategory === 'all') return [];
+    const catObj = categories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase());
+    if (!catObj) return [];
+    return getLevel2Subcategories(catObj, selectedSubCategory);
+  }, [categories, selectedCategory, selectedSubCategory]);
 
   // Calculate active filters count
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (selectedCategory !== 'all') count++;
     if (selectedSubCategory !== 'all') count++;
+    if (selectedSubSubCategory !== 'all') count++;
     if (priceBracket !== 'all') count++;
     if (selectedOccasions.length > 0) count += selectedOccasions.length;
     if (selectedMaterial !== 'All') count++;
@@ -667,6 +680,7 @@ export default function ShopPage({
   }, [
     selectedCategory,
     selectedSubCategory,
+    selectedSubSubCategory,
     priceBracket,
     selectedOccasions,
     selectedMaterial,
@@ -699,6 +713,7 @@ export default function ShopPage({
     setSearchQuery('');
     setSelectedCategory('all');
     setSelectedSubCategory('all');
+    setSelectedSubSubCategory('all');
     setPriceBracket('all');
     setSelectedOccasions([]);
     setSelectedMaterial('All');
@@ -714,15 +729,16 @@ export default function ShopPage({
     const list = products.length > 0 ? products : EXTENDED_CATALOG;
 
     return list.filter((item) => {
-      // Search query (name, category, subcategory, material, description)
+      // Search query (name, category, subcategory, level 2 subcategory, material, description)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesName = item.name.toLowerCase().includes(q);
         const matchesCat = (item.cat_name || '').toLowerCase().includes(q);
         const matchesSubCat = (item.sub_cat_name || '').toLowerCase().includes(q);
+        const matchesSubSubCat = (item.sub_sub_cat_name || '').toLowerCase().includes(q);
         const matchesMat = (item.material || '').toLowerCase().includes(q);
         const matchesDesc = (item.description || '').toLowerCase().includes(q);
-        if (!matchesName && !matchesCat && !matchesSubCat && !matchesMat && !matchesDesc) return false;
+        if (!matchesName && !matchesCat && !matchesSubCat && !matchesSubSubCat && !matchesMat && !matchesDesc) return false;
       }
 
       // Category filter
@@ -734,11 +750,20 @@ export default function ShopPage({
         }
       }
 
-      // Subcategory filter (if selected)
+      // Subcategory filter (Level 1)
       if (selectedSubCategory !== 'all') {
         const itemSubCat = (item.sub_cat_name || '').toLowerCase();
         const targetSubCat = selectedSubCategory.toLowerCase();
         if (itemSubCat !== targetSubCat) {
+          return false;
+        }
+      }
+
+      // Level 2 Subcategory filter (Sub-subcategory)
+      if (selectedSubSubCategory !== 'all') {
+        const itemSubSubCat = (item.sub_sub_cat_name || '').toLowerCase();
+        const targetSubSubCat = selectedSubSubCategory.toLowerCase();
+        if (itemSubSubCat !== targetSubSubCat) {
           return false;
         }
       }
@@ -792,6 +817,7 @@ export default function ShopPage({
     searchQuery,
     selectedCategory,
     selectedSubCategory,
+    selectedSubSubCategory,
     priceBracket,
     selectedOccasions,
     selectedMaterial,
@@ -819,6 +845,19 @@ export default function ShopPage({
     list.forEach((item) => {
       if (item.sub_cat_name) {
         const key = `${(item.cat_name || '').toLowerCase()}::${item.sub_cat_name.toLowerCase()}`;
+        map[key] = (map[key] || 0) + 1;
+      }
+    });
+    return map;
+  }, [products]);
+
+  // Level 2 Sub-subcategory item counts
+  const subSubcategoryCountMap = useMemo(() => {
+    const map = {};
+    const list = products.length > 0 ? products : EXTENDED_CATALOG;
+    list.forEach((item) => {
+      if (item.sub_cat_name && item.sub_sub_cat_name) {
+        const key = `${(item.cat_name || '').toLowerCase()}::${item.sub_cat_name.toLowerCase()}::${item.sub_sub_cat_name.toLowerCase()}`;
         map[key] = (map[key] || 0) + 1;
       }
     });
@@ -921,6 +960,7 @@ export default function ShopPage({
             onClick={() => {
               setSelectedCategory('all');
               setSelectedSubCategory('all');
+              setSelectedSubSubCategory('all');
             }}
           >
             <i className="fa-solid fa-border-all"></i>
@@ -939,6 +979,7 @@ export default function ShopPage({
                 onClick={() => {
                   setSelectedCategory(cat.name);
                   setSelectedSubCategory('all');
+                  setSelectedSubSubCategory('all');
                 }}
               >
                 <i className={cat.icon || 'fa-solid fa-gift'}></i>
@@ -951,7 +992,7 @@ export default function ShopPage({
 
         {/* ── 2.5 SUBCATEGORY PILL FILTER STRIP (Rendered conditionally when category has subcategories) ── */}
         {availableSubcategories.length > 0 && (
-          <div className="shop-subcategory-strip" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '1.2rem', alignItems: 'center', background: '#f8fafc', padding: '10px 16px', borderRadius: '14px', border: '1px solid #e2e8f0' }} role="region" aria-label="Subcategory Selection">
+          <div className="shop-subcategory-strip" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '0.8rem', alignItems: 'center', background: '#f8fafc', padding: '10px 16px', borderRadius: '14px', border: '1px solid #e2e8f0' }} role="region" aria-label="Subcategory Selection">
             <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <i className="fa-solid fa-filter" style={{ color: '#c40b90' }}></i> Subcategory:
             </span>
@@ -971,7 +1012,10 @@ export default function ShopPage({
                 transition: 'all 0.2s',
                 boxShadow: selectedSubCategory === 'all' ? '0 2px 8px rgba(196, 11, 144, 0.25)' : 'none'
               }}
-              onClick={() => setSelectedSubCategory('all')}
+              onClick={() => {
+                setSelectedSubCategory('all');
+                setSelectedSubSubCategory('all');
+              }}
             >
               All {selectedCategory}
             </button>
@@ -995,9 +1039,82 @@ export default function ShopPage({
                     transition: 'all 0.2s',
                     boxShadow: isSubActive ? '0 2px 8px rgba(196, 11, 144, 0.25)' : 'none'
                   }}
-                  onClick={() => setSelectedSubCategory(sub)}
+                  onClick={() => {
+                    setSelectedSubCategory(sub);
+                    setSelectedSubSubCategory('all');
+                  }}
                 >
                   {sub}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── 2.6 LEVEL 2 SUB-SUBCATEGORY PILL FILTER STRIP ── */}
+        {availableLevel2Subcategories.length > 0 && (
+          <div
+            className="shop-subsubcategory-strip"
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginBottom: '1.2rem',
+              alignItems: 'center',
+              background: '#fdf4ff',
+              padding: '9px 16px',
+              borderRadius: '14px',
+              border: '1px solid #f5d0fe'
+            }}
+            role="region"
+            aria-label="Level 2 Subcategory Selection"
+          >
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#86198f', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <i className="fa-solid fa-layer-group" style={{ color: '#c40b90' }}></i> {selectedSubCategory} Types:
+            </span>
+            <button
+              type="button"
+              className={`shop-subcat-pill ${selectedSubSubCategory === 'all' ? 'active' : ''}`}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '16px',
+                border: '1px solid',
+                borderColor: selectedSubSubCategory === 'all' ? '#c40b90' : '#e9d5ff',
+                background: selectedSubSubCategory === 'all' ? '#c40b90' : '#ffffff',
+                color: selectedSubSubCategory === 'all' ? '#ffffff' : '#701a75',
+                fontSize: '0.79rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: selectedSubSubCategory === 'all' ? '0 2px 8px rgba(196, 11, 144, 0.25)' : 'none'
+              }}
+              onClick={() => setSelectedSubSubCategory('all')}
+            >
+              All {selectedSubCategory}
+            </button>
+            {availableLevel2Subcategories.map((subsub) => {
+              const isSubSubActive = selectedSubSubCategory.toLowerCase() === subsub.toLowerCase();
+              return (
+                <button
+                  key={subsub}
+                  type="button"
+                  className={`shop-subcat-pill ${isSubSubActive ? 'active' : ''}`}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '16px',
+                    border: '1px solid',
+                    borderColor: isSubSubActive ? '#c40b90' : '#e9d5ff',
+                    background: isSubSubActive ? '#c40b90' : '#ffffff',
+                    color: isSubSubActive ? '#ffffff' : '#701a75',
+                    fontSize: '0.79rem',
+                    fontWeight: isSubSubActive ? 700 : 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: isSubSubActive ? '0 2px 8px rgba(196, 11, 144, 0.25)' : 'none'
+                  }}
+                  onClick={() => setSelectedSubSubCategory(subsub)}
+                >
+                  ↳ {subsub}
                 </button>
               );
             })}
@@ -1157,6 +1274,7 @@ export default function ShopPage({
                   onClick={() => {
                     setSelectedCategory('all');
                     setSelectedSubCategory('all');
+                    setSelectedSubSubCategory('all');
                   }}
                 >
                   <span className="shop-sidebar-cat-name">
@@ -1172,13 +1290,8 @@ export default function ShopPage({
                   const count = categoryCountMap[cat.name] || 0;
                   const isActive = selectedCategory.toLowerCase() === cat.name.toLowerCase();
 
-                  // Extract subcategories if present
-                  let subList = [];
-                  if (Array.isArray(cat.subcategories)) {
-                    subList = cat.subcategories;
-                  } else if (typeof cat.subcategories === 'string' && cat.subcategories.trim()) {
-                    subList = cat.subcategories.split(',').map((s) => s.trim()).filter(Boolean);
-                  }
+                  // Extract subcategories if present (robust parser)
+                  let subList = getSubcategoryNames(cat);
                   if (cat.name.toLowerCase() === 'infants' && subList.length === 0) {
                     subList = ['Boys', 'Girls'];
                   }
@@ -1191,6 +1304,7 @@ export default function ShopPage({
                         onClick={() => {
                           setSelectedCategory(cat.name);
                           setSelectedSubCategory('all');
+                          setSelectedSubSubCategory('all');
                         }}
                       >
                         <span className="shop-sidebar-cat-name">
@@ -1202,32 +1316,83 @@ export default function ShopPage({
                         </span>
                       </button>
 
-                      {/* Nested Subcategories */}
+                      {/* Nested Subcategories (Level 1 & Level 2) */}
                       {subList.length > 0 && (
                         <div className={`shop-sidebar-subcat-nested ${isActive ? 'expanded' : ''}`}>
                           {subList.map((sub) => {
                             const isSubActive = isActive && selectedSubCategory.toLowerCase() === sub.toLowerCase();
                             const subKey = `${cat.name.toLowerCase()}::${sub.toLowerCase()}`;
                             const subCount = subcategoryCountMap[subKey] || 0;
+                            const level2List = getLevel2Subcategories(cat, sub);
+
                             return (
-                              <button
-                                key={sub}
-                                type="button"
-                                className={`shop-sidebar-subcat-btn ${isSubActive ? 'active' : ''}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedCategory(cat.name);
-                                  setSelectedSubCategory(sub);
-                                }}
-                              >
-                                <span className="shop-sidebar-subcat-title">
-                                  <i className="fa-solid fa-chevron-right" style={{ fontSize: '9px', opacity: 0.6 }}></i>
-                                  <span>{sub}</span>
-                                </span>
-                                {subCount > 0 && (
-                                  <span className="shop-sidebar-sub-badge">{subCount}</span>
+                              <div key={sub} className="shop-sidebar-subcat-group">
+                                <button
+                                  type="button"
+                                  className={`shop-sidebar-subcat-btn ${isSubActive ? 'active' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCategory(cat.name);
+                                    setSelectedSubCategory(sub);
+                                    setSelectedSubSubCategory('all');
+                                  }}
+                                >
+                                  <span className="shop-sidebar-subcat-title">
+                                    <i className="fa-solid fa-chevron-right" style={{ fontSize: '9px', opacity: 0.6 }}></i>
+                                    <span>{sub}</span>
+                                  </span>
+                                  {subCount > 0 && (
+                                    <span className="shop-sidebar-sub-badge">{subCount}</span>
+                                  )}
+                                </button>
+
+                                {/* Level 2 Child Subcategories */}
+                                {isSubActive && level2List.length > 0 && (
+                                  <div className="shop-sidebar-subsubcat-nested" style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '3px', margin: '4px 0' }}>
+                                    {level2List.map((subsub) => {
+                                      const isSubSubActive = selectedSubSubCategory.toLowerCase() === subsub.toLowerCase();
+                                      const subsubKey = `${cat.name.toLowerCase()}::${sub.toLowerCase()}::${subsub.toLowerCase()}`;
+                                      const subsubCount = subSubcategoryCountMap[subsubKey] || 0;
+                                      return (
+                                        <button
+                                          key={subsub}
+                                          type="button"
+                                          className={`shop-sidebar-subsubcat-btn ${isSubSubActive ? 'active' : ''}`}
+                                          style={{
+                                            fontSize: '0.8rem',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            background: isSubSubActive ? '#fdf4ff' : 'transparent',
+                                            color: isSubSubActive ? '#c40b90' : '#64748b',
+                                            fontWeight: isSubSubActive ? 700 : 500,
+                                            textAlign: 'left',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            transition: 'all 0.15s'
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedSubSubCategory(subsub);
+                                          }}
+                                        >
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{ color: isSubSubActive ? '#c40b90' : '#cbd5e1' }}>↳</span>
+                                            <span>{subsub}</span>
+                                          </span>
+                                          {subsubCount > 0 && (
+                                            <span style={{ fontSize: '10px', opacity: 0.75, background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>
+                                              {subsubCount}
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 )}
-                              </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -1475,7 +1640,11 @@ export default function ShopPage({
                         <div className="shop-card-body">
                           <div>
                             <div className="shop-card-meta-top">
-                              <span className="shop-card-category">{item.cat_name}</span>
+                              <span className="shop-card-category">
+                                {item.cat_name}
+                                {item.sub_cat_name && ` › ${item.sub_cat_name}`}
+                                {item.sub_sub_cat_name && ` › ${item.sub_sub_cat_name}`}
+                              </span>
                               <span className="shop-card-rating">
                                 <i className="fa-solid fa-star"></i> {item.rating || 4.8}
                                 <span style={{ color: '#92400e', fontWeight: 500, fontSize: '11px' }}>
@@ -1652,7 +1821,11 @@ export default function ShopPage({
             {/* Details Column */}
             <div className="shop-quickview-details-col">
               <div className="shop-card-meta-top">
-                <span className="shop-card-category">{quickViewProduct.cat_name}</span>
+                <span className="shop-card-category">
+                  {quickViewProduct.cat_name}
+                  {quickViewProduct.sub_cat_name && ` › ${quickViewProduct.sub_cat_name}`}
+                  {quickViewProduct.sub_sub_cat_name && ` › ${quickViewProduct.sub_sub_cat_name}`}
+                </span>
                 <span className="shop-card-rating">
                   <i className="fa-solid fa-star"></i> {quickViewProduct.rating || 4.8}
                   <span style={{ color: '#92400e', fontWeight: 500, fontSize: '11px' }}>
