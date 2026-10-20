@@ -879,25 +879,44 @@ export default function App() {
   // Cart operations
   const handleAddToCart = (product) => {
     if (!product) return;
+    const isOutOfStock = product.in_stock === false || (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0);
+    if (isOutOfStock) {
+      showNotification('error', 'Item Out of Stock', `Sorry, "${product.name}" is currently sold out.`);
+      return;
+    }
+
     const img = product.image_url || product.image || product.img || product.fallback_image_url || '/assets/images/cups-product.avif';
     const normalized = {
       ...product,
       image_url: img,
       image: img,
-      price: Number(product.price) || 0
+      price: Number(product.price) || 0,
+      stock: product.stock !== undefined && product.stock !== null ? Number(product.stock) : 50
     };
 
+    let reachedMax = false;
     setCart((prev) => {
       const existing = prev.find((item) => item.id === normalized.id);
       if (existing) {
+        const nextQty = (existing.quantity || 1) + (normalized.quantity || 1);
+        if (normalized.stock !== undefined && normalized.stock !== null && nextQty > normalized.stock) {
+          reachedMax = true;
+          return prev;
+        }
         return prev.map((item) =>
           item.id === normalized.id
-            ? { ...item, ...normalized, quantity: (item.quantity || 1) + (normalized.quantity || 1) }
+            ? { ...item, ...normalized, quantity: nextQty }
             : item
         );
       }
       return [...prev, { ...normalized, quantity: normalized.quantity || 1 }];
     });
+
+    if (reachedMax) {
+      showNotification('warning', 'Stock Limit Reached', `Only ${normalized.stock} units available in stock for "${normalized.name}".`);
+      return;
+    }
+
     showNotification('success', 'Added to Bag', `"${normalized.name}" added to your bag!`);
     setIsCartOpen(true);
   };
@@ -905,11 +924,16 @@ export default function App() {
   const handleUpdateCartQuantity = (productId, newQty) => {
     if (newQty <= 0) {
       handleRemoveFromCart(productId);
-    } else {
-      setCart((prev) =>
-        prev.map((item) => (item.id === productId ? { ...item, quantity: newQty } : item))
-      );
+      return;
     }
+    const currentItem = cart.find((i) => i.id === productId);
+    if (currentItem && currentItem.stock !== undefined && currentItem.stock !== null && newQty > currentItem.stock) {
+      showNotification('warning', 'Stock Limit Reached', `Only ${currentItem.stock} units available for "${currentItem.name}".`);
+      return;
+    }
+    setCart((prev) =>
+      prev.map((item) => (item.id === productId ? { ...item, quantity: newQty } : item))
+    );
   };
 
   const handleRemoveFromCart = (productId) => {

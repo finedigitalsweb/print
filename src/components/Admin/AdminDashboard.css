@@ -1856,3 +1856,23 @@
   flex-shrink: 0;
 }
 
+
+
+/* Stock Badges in Admin Dashboard */
+.admin-badge.stock-in {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.admin-badge.stock-low {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.admin-badge.stock-out {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}

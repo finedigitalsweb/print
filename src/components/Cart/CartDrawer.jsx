@@ -314,14 +314,22 @@ export default function CartDrawer({
                             <i className="fa-solid fa-minus"></i>
                           </button>
                           <span className="cart-qty-val">{item.quantity || 1}</span>
-                          <button
-                            type="button"
-                            className="cart-qty-btn"
-                            onClick={() => onUpdateQuantity(item.id, (item.quantity || 1) + 1)}
-                            aria-label="Increase quantity"
-                          >
-                            <i className="fa-solid fa-plus"></i>
-                          </button>
+                          {(() => {
+                            const isAtMax = item.stock !== undefined && item.stock !== null && (item.quantity || 1) >= item.stock;
+                            return (
+                              <button
+                                type="button"
+                                className={`cart-qty-btn ${isAtMax ? 'disabled' : ''}`}
+                                disabled={isAtMax}
+                                onClick={() => !isAtMax && onUpdateQuantity(item.id, (item.quantity || 1) + 1)}
+                                aria-label="Increase quantity"
+                                title={isAtMax ? `Max available in stock (${item.stock})` : 'Increase quantity'}
+                                style={isAtMax ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                              >
+                                <i className="fa-solid fa-plus"></i>
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

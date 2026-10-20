@@ -21,12 +21,14 @@ app.use('/api', (req, res, next) => {
 // Helper to normalize product fields for frontend consumers
 function formatProduct(p) {
   if (!p) return null;
+  const stockNum = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
   return {
     ...p,
     price: Number(p.price) || 0,
     old_price: Number(p.old_price) || 0,
     rating: Number(p.rating) || 4.8,
     reviews_count: Number(p.reviews_count) || 12,
+    stock: isNaN(stockNum) ? 50 : stockNum,
     in_stock: p.in_stock === 1 || p.in_stock === true || p.in_stock === '1',
     show_on_home: p.show_on_home === 1 || p.show_on_home === true || p.show_on_home === '1',
     is_customizable: p.is_customizable !== undefined ? Boolean(p.is_customizable) : true,
@@ -66,9 +68,10 @@ app.post('/api/products', async (req, res) => {
   try {
     const p = req.body;
     const id = p.id || `prod_${Date.now()}`;
+    const stockVal = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
     await query(
-      `INSERT INTO products (id, name, cat_name, sub_cat_name, price, old_price, rating, reviews_count, image_url, fallback_image_url, badge, material, description, in_stock, show_on_home)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (id, name, cat_name, sub_cat_name, price, old_price, rating, reviews_count, image_url, fallback_image_url, badge, material, description, in_stock, stock, show_on_home)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         p.name,
@@ -84,6 +87,7 @@ app.post('/api/products', async (req, res) => {
         p.material || '',
         p.description || '',
         p.in_stock ? 1 : 0,
+        isNaN(stockVal) ? 50 : stockVal,
         p.show_on_home ? 1 : 0
       ]
     );
@@ -99,10 +103,11 @@ app.put('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const p = req.body;
+    const stockVal = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
     await query(
       `UPDATE products SET
          name = ?, cat_name = ?, sub_cat_name = ?, price = ?, old_price = ?,
-         image_url = ?, badge = ?, material = ?, description = ?, in_stock = ?, show_on_home = ?
+         image_url = ?, badge = ?, material = ?, description = ?, in_stock = ?, stock = ?, show_on_home = ?
        WHERE id = ?`,
       [
         p.name,
@@ -115,10 +120,40 @@ app.put('/api/products/:id', async (req, res) => {
         p.material || '',
         p.description || '',
         p.in_stock !== undefined ? (p.in_stock ? 1 : 0) : 1,
+        isNaN(stockVal) ? 50 : stockVal,
         p.show_on_home !== undefined ? (p.show_on_home ? 1 : 0) : 0,
         id
       ]
     );
+    const [updated] = await query('SELECT * FROM products WHERE id = ?', [id]);
+    res.json({ success: true, data: formatProduct(updated) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/products/:id/stock', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stock, in_stock } = req.body;
+    const updates = [];
+    const params = [];
+
+    if (stock !== undefined) {
+      updates.push('stock = ?');
+      params.push(Math.max(0, Number(stock) || 0));
+    }
+    if (in_stock !== undefined) {
+      updates.push('in_stock = ?');
+      params.push(in_stock ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'No stock fields provided' });
+    }
+
+    params.push(id);
+    await query(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`, params);
     const [updated] = await query('SELECT * FROM products WHERE id = ?', [id]);
     res.json({ success: true, data: formatProduct(updated) });
   } catch (err) {

@@ -76,18 +76,25 @@ export default function ProductListsSection({
 
         {/* Right Cart Action */}
         <div className="collection-action-box">
-          <button
-            type="button"
-            className="collection-cart-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(prod);
-            }}
-            title="Add to cart"
-            aria-label={`Add ${prod.name} to cart`}
-          >
-            <i className="fa-solid fa-basket-shopping"></i>
-          </button>
+          {(() => {
+            const isOutOfStock = prod.in_stock === false || (prod.stock !== undefined && prod.stock !== null && Number(prod.stock) <= 0);
+            return (
+              <button
+                type="button"
+                className={`collection-cart-btn ${isOutOfStock ? 'disabled' : ''}`}
+                disabled={isOutOfStock}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isOutOfStock) onAddToCart(prod);
+                }}
+                style={isOutOfStock ? { background: '#f1f5f9', color: '#94a3b8', cursor: 'not-allowed', opacity: 0.7 } : {}}
+                title={isOutOfStock ? 'Sold Out' : 'Add to cart'}
+                aria-label={isOutOfStock ? `${prod.name} is out of stock` : `Add ${prod.name} to cart`}
+              >
+                <i className={isOutOfStock ? 'fa-solid fa-ban' : 'fa-solid fa-basket-shopping'}></i>
+              </button>
+            );
+          })()}
         </div>
       </div>
     );

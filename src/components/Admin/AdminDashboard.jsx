@@ -22,6 +22,7 @@ import {
   apiGetProducts,
   apiSaveProduct,
   apiUpdateProduct,
+  apiUpdateProductStock,
   apiDeleteProduct,
   apiGetCategories,
   apiSaveCategory,
@@ -1013,6 +1014,7 @@ export default function AdminDashboard({
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
   const [productSubCategoryFilter, setProductSubCategoryFilter] = useState('all');
+  const [productStockFilter, setProductStockFilter] = useState('all'); // 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
   const [productSortBy, setProductSortBy] = useState('default'); // 'default' | 'a-z' | 'z-a' | 'price-asc' | 'price-desc'
 
   // ── 7. MODALS STATE ───────────────────────────────────────────────────
@@ -1024,11 +1026,13 @@ export default function AdminDashboard({
     sub_cat_name: '',
     price: 499,
     old_price: 799,
-    stock: 25,
+    stock: 30,
+    in_stock: true,
     material: 'Wood',
     image_url: '/assets/images/frames.avif',
     description: '',
-    is_customizable: true
+    is_customizable: true,
+    show_on_home: true
   });
 
   // Order Details / Customization Inspection Modal
@@ -2787,20 +2791,21 @@ export default function AdminDashboard({
 
   const handleOpenEditProduct = (prod) => {
     setEditingProduct(prod);
+    const stockCount = prod.stock !== undefined && prod.stock !== null ? Number(prod.stock) : 25;
     setProductFormData({
       name: prod.name || '',
       cat_name: prod.cat_name || 'Infants',
       sub_cat_name: prod.sub_cat_name || '',
       price: prod.price || 0,
       old_price: prod.old_price || 0,
-      stock: prod.stock || 25,
+      stock: stockCount,
       material: prod.material || 'Ceramic',
       image_url: prod.image_url || '/assets/images/cups-product.avif',
       fallback_image_url: prod.fallback_image_url || '',
       badge: prod.badge || '',
       description: prod.description || '',
       is_customizable: prod.is_customizable !== false,
-      in_stock: prod.in_stock !== false && prod.in_stock !== 0,
+      in_stock: prod.in_stock !== false && prod.in_stock !== 0 && stockCount > 0,
       show_on_home: prod.show_on_home !== false && prod.show_on_home !== 0
     });
     setIsProductModalOpen(true);
@@ -2813,13 +2818,17 @@ export default function AdminDashboard({
       return;
     }
 
+    const stockQty = Math.max(0, parseInt(productFormData.stock, 10) || 0);
+    const inStockStatus = Boolean(productFormData.in_stock) && stockQty > 0;
+
     const payload = {
       ...(editingProduct || {}),
       ...productFormData,
       sub_cat_name: productFormData.sub_cat_name ? productFormData.sub_cat_name.trim() : null,
       price: Number(productFormData.price),
       old_price: Number(productFormData.old_price),
-      in_stock: productFormData.in_stock !== false && productFormData.in_stock !== 0,
+      stock: stockQty,
+      in_stock: inStockStatus,
       show_on_home: productFormData.show_on_home !== false && productFormData.show_on_home !== 0
     };
 
@@ -2830,7 +2839,7 @@ export default function AdminDashboard({
           ? { ...p, ...payload }
           : p
       );
-      addAuditLog('Product Updated', `Edited "${payload.name}" (₹${payload.price})`);
+      addAuditLog('Product Updated', `Edited "${payload.name}" (Stock: ${payload.stock}, ₹${payload.price})`);
       showNotification('success', 'Product Updated', `Saved changes to "${payload.name}".`);
     } else {
       const newProd = {
@@ -2840,11 +2849,10 @@ export default function AdminDashboard({
         reviews_count: 0,
         is_new: true,
         is_bestseller: false,
-        in_stock: true,
         fast_delivery: true
       };
       updatedList = [newProd, ...localProducts];
-      addAuditLog('Product Created', `Added new product "${payload.name}"`);
+      addAuditLog('Product Created', `Added new product "${payload.name}" with stock ${payload.stock}`);
       showNotification('success', 'Product Created', `"${payload.name}" added to catalog.`);
     }
 
@@ -2866,6 +2874,33 @@ export default function AdminDashboard({
       }
     } catch (saveErr) {
       console.warn('Backend product save notice:', saveErr);
+    }
+  };
+
+  const handleQuickToggleStock = async (prod) => {
+    const isCurrentlyIn = prod.in_stock !== false && (prod.stock === undefined || Number(prod.stock) > 0);
+    const nextInStock = !isCurrentlyIn;
+    const nextStock = nextInStock ? (Number(prod.stock) > 0 ? Number(prod.stock) : 25) : 0;
+    const updated = { ...prod, in_stock: nextInStock, stock: nextStock };
+
+    const updatedList = localProducts.map((p) => (p.id === prod.id ? updated : p));
+    lastLocalProductSaveRef.current = Date.now();
+    setLocalProducts(updatedList);
+    if (onUpdateProducts) onUpdateProducts(updatedList);
+    safeSaveProductsCache(updatedList);
+    broadcastStoreUpdate('finegift_admin_products', updatedList);
+
+    addAuditLog('Stock Status Updated', `Toggled "${prod.name}" to ${nextInStock ? `In Stock (${nextStock} units)` : 'Out of Stock'}`);
+    showNotification(
+      nextInStock ? 'success' : 'warning',
+      'Stock Updated',
+      `"${prod.name}" marked as ${nextInStock ? `In Stock (${nextStock} units)` : 'Out of Stock'}.`
+    );
+
+    try {
+      await apiUpdateProductStock(prod.id, { in_stock: nextInStock, stock: nextStock });
+    } catch (err) {
+      console.warn('Quick stock update backend sync note:', err);
     }
   };
 
@@ -3564,6 +3599,13 @@ export default function AdminDashboard({
         const subMatch = (prod.sub_cat_name || '').toLowerCase() === productSubCategoryFilter.toLowerCase();
         if (!subMatch) return false;
       }
+      if (productStockFilter !== 'all') {
+        const isOut = prod.in_stock === false || (prod.stock !== undefined && prod.stock !== null && Number(prod.stock) <= 0);
+        const isLow = !isOut && prod.stock !== undefined && prod.stock !== null && Number(prod.stock) > 0 && Number(prod.stock) <= 5;
+        if (productStockFilter === 'out_of_stock' && !isOut) return false;
+        if (productStockFilter === 'low_stock' && !isLow) return false;
+        if (productStockFilter === 'in_stock' && (isOut || isLow)) return false;
+      }
       if (productSearch.trim()) {
         const q = productSearch.toLowerCase();
         return (
@@ -3580,7 +3622,7 @@ export default function AdminDashboard({
       if (productSortBy === 'price-desc') return (b.price || 0) - (a.price || 0);
       return 0;
     });
-  }, [localProducts, productCategoryFilter, productSubCategoryFilter, productSearch, productSortBy]);
+  }, [localProducts, productCategoryFilter, productSubCategoryFilter, productStockFilter, productSearch, productSortBy]);
 
   // ── 12B. CUSTOMER MANAGEMENT CRUD HANDLERS ────────────────────────────
   const saveCustomersList = (updatedList) => {
@@ -4666,6 +4708,22 @@ export default function AdminDashboard({
                       <option value="price-desc">Price: High to Low</option>
                     </select>
 
+                    <select
+                      className="admin-filter-select"
+                      value={productStockFilter}
+                      onChange={(e) => setProductStockFilter(e.target.value)}
+                      title="Filter by Stock Availability"
+                      style={{
+                        borderColor: productStockFilter !== 'all' ? '#c40b90' : undefined,
+                        fontWeight: productStockFilter !== 'all' ? 700 : undefined
+                      }}
+                    >
+                      <option value="all">📦 All Stock Status</option>
+                      <option value="in_stock">🟢 In Stock (&gt; 5)</option>
+                      <option value="low_stock">🟡 Low Stock (&le; 5)</option>
+                      <option value="out_of_stock">🔴 Out of Stock (0)</option>
+                    </select>
+
                     <button
                       type="button"
                       className="admin-btn-secondary"
@@ -4686,9 +4744,20 @@ export default function AdminDashboard({
                       <i className="fa-solid fa-arrow-down-a-z"></i> A to Z
                     </button>
                   </div>
-                  <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>
-                    Showing <strong>{filteredProducts.length}</strong> items
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11px', color: '#16a34a', background: '#f0fdf4', padding: '3px 8px', borderRadius: '6px', border: '1px solid #bbf7d0', fontWeight: 700 }}>
+                      <i className="fa-solid fa-circle-check"></i> {localProducts.filter((p) => p.in_stock !== false && (p.stock === undefined || Number(p.stock) > 5)).length} In Stock
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#d97706', background: '#fffbeb', padding: '3px 8px', borderRadius: '6px', border: '1px solid #fde68a', fontWeight: 700 }}>
+                      <i className="fa-solid fa-triangle-exclamation"></i> {localProducts.filter((p) => p.in_stock !== false && Number(p.stock) > 0 && Number(p.stock) <= 5).length} Low Stock
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#dc2626', background: '#fef2f2', padding: '3px 8px', borderRadius: '6px', border: '1px solid #fecaca', fontWeight: 700 }}>
+                      <i className="fa-solid fa-circle-xmark"></i> {localProducts.filter((p) => p.in_stock === false || (p.stock !== undefined && Number(p.stock) <= 0)).length} Out of Stock
+                    </span>
+                    <span style={{ fontSize: '12.5px', color: '#94a3b8', marginLeft: '6px' }}>
+                      Showing <strong>{filteredProducts.length}</strong> items
+                    </span>
+                  </div>
                 </div>
 
                 <div className="admin-table-responsive">
@@ -4745,7 +4814,51 @@ export default function AdminDashboard({
                             )}
                           </td>
                           <td>
-                            <span className="admin-badge active">In Stock Ready</span>
+                            {(() => {
+                              const isOut = p.in_stock === false || (p.stock !== undefined && p.stock !== null && Number(p.stock) <= 0);
+                              const isLow = !isOut && p.stock !== undefined && p.stock !== null && Number(p.stock) > 0 && Number(p.stock) <= 5;
+                              const stockQty = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
+
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-start' }}>
+                                  {isOut ? (
+                                    <span className="admin-badge cancelled" title="Product is currently marked Out of Stock">
+                                      <i className="fa-solid fa-circle-xmark"></i> Out of Stock (0)
+                                    </span>
+                                  ) : isLow ? (
+                                    <span className="admin-badge engraving" title="Low stock threshold warning">
+                                      <i className="fa-solid fa-triangle-exclamation"></i> Low Stock ({stockQty} left)
+                                    </span>
+                                  ) : (
+                                    <span className="admin-badge active" title="Active stock available for immediate checkout">
+                                      <i className="fa-solid fa-circle-check"></i> In Stock ({stockQty})
+                                    </span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickToggleStock(p)}
+                                    title={isOut ? 'Click to make In Stock' : 'Click to make Out of Stock'}
+                                    style={{
+                                      fontSize: '10px',
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      border: isOut ? '1px solid #bbf7d0' : '1px solid #fecaca',
+                                      background: isOut ? '#f0fdf4' : '#fff',
+                                      color: isOut ? '#15803d' : '#b91c1c',
+                                      cursor: 'pointer',
+                                      fontWeight: 600,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    <i className={isOut ? 'fa-solid fa-box-open' : 'fa-solid fa-ban'}></i>
+                                    {isOut ? 'Restock (25)' : 'Mark Sold Out'}
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td>
                             <div className="admin-action-btn-group">
@@ -12119,6 +12232,133 @@ export default function AdminDashboard({
                     />
                   </div>
 
+                  {/* Inventory & Stock Controls Section */}
+                  <div className="admin-form-group">
+                    <label>
+                      <i className="fa-solid fa-boxes-stacked" style={{ color: '#c40b90', marginRight: '6px' }}></i>
+                      Stock Quantity (Units in Warehouse) *
+                    </label>
+                    <input
+                      type="number"
+                      className="admin-form-input"
+                      required
+                      min={0}
+                      value={productFormData.stock}
+                      onChange={(e) => {
+                        const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setProductFormData({
+                          ...productFormData,
+                          stock: val,
+                          in_stock: val > 0 ? (productFormData.in_stock !== false) : false
+                        });
+                      }}
+                      placeholder="e.g. 30"
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label>
+                      <i className="fa-solid fa-signal" style={{ color: '#c40b90', marginRight: '6px' }}></i>
+                      Stock Availability Status *
+                    </label>
+                    <select
+                      className="admin-form-select"
+                      value={!productFormData.in_stock || Number(productFormData.stock) === 0 ? 'out_of_stock' : (Number(productFormData.stock) <= 5 ? 'low_stock' : 'in_stock')}
+                      onChange={(e) => {
+                        const status = e.target.value;
+                        if (status === 'out_of_stock') {
+                          setProductFormData({ ...productFormData, in_stock: false, stock: 0 });
+                        } else if (status === 'low_stock') {
+                          setProductFormData({
+                            ...productFormData,
+                            in_stock: true,
+                            stock: Number(productFormData.stock) > 0 && Number(productFormData.stock) <= 5 ? Number(productFormData.stock) : 4
+                          });
+                        } else {
+                          setProductFormData({
+                            ...productFormData,
+                            in_stock: true,
+                            stock: Number(productFormData.stock) > 5 ? Number(productFormData.stock) : 30
+                          });
+                        }
+                      }}
+                    >
+                      <option value="in_stock">🟢 In Stock (Active &amp; Ready for Checkout)</option>
+                      <option value="low_stock">🟡 Low Stock Alert (&le; 5 units remaining)</option>
+                      <option value="out_of_stock">🔴 Out of Stock / Temporarily Sold Out</option>
+                    </select>
+                  </div>
+
+                  <div className="admin-form-group full-width" style={{ marginTop: '-6px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>Quick Presets:</span>
+                      <button
+                        type="button"
+                        style={{
+                          fontSize: '11px',
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #fecaca',
+                          background: Number(productFormData.stock) === 0 || !productFormData.in_stock ? '#fee2e2' : '#ffffff',
+                          color: '#dc2626',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                        onClick={() => setProductFormData({ ...productFormData, stock: 0, in_stock: false })}
+                      >
+                        🔴 0 (Sold Out)
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          fontSize: '11px',
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #fde68a',
+                          background: Number(productFormData.stock) === 5 && productFormData.in_stock ? '#fef3c7' : '#ffffff',
+                          color: '#d97706',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                        onClick={() => setProductFormData({ ...productFormData, stock: 5, in_stock: true })}
+                      >
+                        🟡 5 (Low Stock Alert)
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          fontSize: '11px',
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #bbf7d0',
+                          background: Number(productFormData.stock) === 30 && productFormData.in_stock ? '#dcfce7' : '#ffffff',
+                          color: '#16a34a',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                        onClick={() => setProductFormData({ ...productFormData, stock: 30, in_stock: true })}
+                      >
+                        🟢 30 (Normal Batch)
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          fontSize: '11px',
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #bfdbfe',
+                          background: Number(productFormData.stock) === 100 && productFormData.in_stock ? '#dbeafe' : '#ffffff',
+                          color: '#2563eb',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                        onClick={() => setProductFormData({ ...productFormData, stock: 100, in_stock: true })}
+                      >
+                        📦 100 (Bulk Supply)
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="admin-form-group full-width">
                     <label>Product Visual / Media Asset</label>
                     <div className="admin-media-uploader-box">
@@ -12258,6 +12498,17 @@ export default function AdminDashboard({
                         onChange={(e) => setProductFormData({ ...productFormData, is_customizable: e.target.checked })}
                       />
                       <span>Allow live laser engraving &amp; text preview for customers</span>
+                    </label>
+                  </div>
+
+                  <div className="admin-form-group full-width">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={productFormData.show_on_home !== false}
+                        onChange={(e) => setProductFormData({ ...productFormData, show_on_home: e.target.checked })}
+                      />
+                      <span>Display in featured collections on Storefront homepage</span>
                     </label>
                   </div>
                 </div>

@@ -61,24 +61,28 @@ export async function getDbHealth() {
 export async function apiGetProducts() {
   const result = await safeFetch(`${API_BASE}/products?_t=${Date.now()}`);
   if (result?.success && Array.isArray(result.data)) {
-    return result.data.map((p) => ({
-      ...p,
-      price: Number(p.price) || 0,
-      old_price: Number(p.old_price) || 0,
-      rating: Number(p.rating) || 4.8,
-      reviews_count: Number(p.reviews_count) || 12,
-      in_stock: p.in_stock === 1 || p.in_stock === true || p.in_stock === '1',
-      show_on_home: p.show_on_home === 1 || p.show_on_home === true || p.show_on_home === '1',
-      is_customizable: p.is_customizable !== undefined ? Boolean(p.is_customizable) : true,
-      is_bestseller: Boolean(p.is_bestseller),
-      is_new: p.is_new !== undefined ? Boolean(p.is_new) : true,
-      fast_delivery: p.fast_delivery !== undefined ? Boolean(p.fast_delivery) : true,
-      occasions: Array.isArray(p.occasions)
-        ? p.occasions
-        : (typeof p.occasions === 'string' && p.occasions.trim()
-            ? (p.occasions.startsWith('[') ? JSON.parse(p.occasions) : p.occasions.split(',').map(s => s.trim()))
-            : (p.badge ? [p.badge] : []))
-    }));
+    return result.data.map((p) => {
+      const stockVal = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
+      return {
+        ...p,
+        price: Number(p.price) || 0,
+        old_price: Number(p.old_price) || 0,
+        rating: Number(p.rating) || 4.8,
+        reviews_count: Number(p.reviews_count) || 12,
+        stock: isNaN(stockVal) ? 50 : stockVal,
+        in_stock: p.in_stock === 1 || p.in_stock === true || p.in_stock === '1',
+        show_on_home: p.show_on_home === 1 || p.show_on_home === true || p.show_on_home === '1',
+        is_customizable: p.is_customizable !== undefined ? Boolean(p.is_customizable) : true,
+        is_bestseller: Boolean(p.is_bestseller),
+        is_new: p.is_new !== undefined ? Boolean(p.is_new) : true,
+        fast_delivery: p.fast_delivery !== undefined ? Boolean(p.fast_delivery) : true,
+        occasions: Array.isArray(p.occasions)
+          ? p.occasions
+          : (typeof p.occasions === 'string' && p.occasions.trim()
+              ? (p.occasions.startsWith('[') ? JSON.parse(p.occasions) : p.occasions.split(',').map(s => s.trim()))
+              : (p.badge ? [p.badge] : []))
+      };
+    });
   }
   return null;
 }
@@ -94,6 +98,13 @@ export async function apiUpdateProduct(id, product) {
   return await safeFetch(`${API_BASE}/products/${id}`, {
     method: 'PUT',
     body: JSON.stringify(product)
+  });
+}
+
+export async function apiUpdateProductStock(id, { stock, in_stock }) {
+  return await safeFetch(`${API_BASE}/products/${id}/stock`, {
+    method: 'PATCH',
+    body: JSON.stringify({ stock, in_stock })
   });
 }
 

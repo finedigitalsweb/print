@@ -1657,3 +1657,32 @@
     display: none; /* Hide grid/list toggles on ultra-narrow phones (<400px) to prevent any wrapping or overflow */
   }
 }
+
+
+/* Shop Stock Badges & Urgency Styles */
+.shop-badge-stock-out {
+  background: rgba(15, 23, 42, 0.92);
+  color: #fca5a5;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shop-card-add-btn.disabled,
+.shop-card-add-btn:disabled {
+  background: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.shop-product-card.is-out-of-stock .shop-card-img {
+  filter: grayscale(35%) contrast(90%);
+  opacity: 0.85;
+}

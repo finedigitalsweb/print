@@ -772,7 +772,7 @@ export default function ShopPage({
 
       // Feature switches
       if (onlyCustomizable && !item.is_customizable) return false;
-      if (onlyInStock && !item.in_stock) return false;
+      if (onlyInStock && (!item.in_stock || (item.stock !== undefined && item.stock !== null && Number(item.stock) <= 0))) return false;
       if (onlyFastDelivery && !item.fast_delivery) return false;
 
       return true;
@@ -1404,15 +1404,30 @@ export default function ShopPage({
                   {paginatedProducts.map((item) => {
                     const discountPct = Math.round(((item.old_price - item.price) / item.old_price) * 100);
                     const isWish = isInWishlist(item.id);
+                    const isOutOfStock = item.in_stock === false || (item.stock !== undefined && item.stock !== null && Number(item.stock) <= 0);
+                    const isLowStock = !isOutOfStock && item.stock !== undefined && item.stock !== null && Number(item.stock) > 0 && Number(item.stock) <= 5;
 
                     return (
-                      <article key={item.id} className="shop-product-card">
+                      <article key={item.id} className={`shop-product-card ${isOutOfStock ? 'is-out-of-stock' : ''}`}>
                         {/* Media Area */}
                         <div className="shop-card-media">
                           {/* Floating Badges */}
                           <div className="shop-card-badges">
-                            {discountPct > 0 && (
-                              <span className="shop-badge-discount">-{discountPct}% OFF</span>
+                            {isOutOfStock ? (
+                              <span className="shop-badge-stock-out">
+                                <i className="fa-solid fa-ban"></i> Out of Stock
+                              </span>
+                            ) : (
+                              <>
+                                {discountPct > 0 && (
+                                  <span className="shop-badge-discount">-{discountPct}% OFF</span>
+                                )}
+                                {isLowStock && (
+                                  <span className="shop-badge-discount" style={{ background: '#d97706', boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)' }}>
+                                    <i className="fa-solid fa-fire"></i> Only {item.stock} Left
+                                  </span>
+                                )}
+                              </>
                             )}
                             {item.is_customizable && (
                               <span className="shop-badge-custom">
@@ -1451,7 +1466,7 @@ export default function ShopPage({
                               className="shop-quickview-btn"
                               onClick={() => handleOpenQuickView(item)}
                             >
-                              <i className="fa-regular fa-eye"></i> Quick View & Preview
+                              <i className="fa-regular fa-eye"></i> Quick View &amp; Preview
                             </button>
                           </div>
                         </div>
@@ -1493,10 +1508,20 @@ export default function ShopPage({
 
                             <button
                               type="button"
-                              className="shop-card-add-btn"
-                              onClick={() => handleAddToCartWithCustom(item, 1)}
+                              className={`shop-card-add-btn ${isOutOfStock ? 'disabled' : ''}`}
+                              disabled={isOutOfStock}
+                              onClick={() => !isOutOfStock && handleAddToCartWithCustom(item, 1)}
+                              title={isOutOfStock ? 'Currently out of stock' : 'Add to Bag'}
                             >
-                              <i className="fa-solid fa-cart-shopping"></i> Add to Bag
+                              {isOutOfStock ? (
+                                <>
+                                  <i className="fa-solid fa-ban"></i> Out of Stock
+                                </>
+                              ) : (
+                                <>
+                                  <i className="fa-solid fa-cart-shopping"></i> Add to Bag
+                                </>
+                              )}
                             </button>
                           </div>
                         </div>
@@ -1674,6 +1699,35 @@ export default function ShopPage({
                 {quickViewProduct.description}
               </p>
 
+              {/* Stock Status Indicator Banner */}
+              {(() => {
+                const isQuickOutOfStock = quickViewProduct.in_stock === false || (quickViewProduct.stock !== undefined && quickViewProduct.stock !== null && Number(quickViewProduct.stock) <= 0);
+                const isQuickLowStock = !isQuickOutOfStock && quickViewProduct.stock !== undefined && quickViewProduct.stock !== null && Number(quickViewProduct.stock) > 0 && Number(quickViewProduct.stock) <= 5;
+
+                if (isQuickOutOfStock) {
+                  return (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: '10px', color: '#b91c1c', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
+                      <i className="fa-solid fa-circle-xmark" style={{ fontSize: '16px' }}></i>
+                      <span>Currently Out of Stock. Artisans are crafting a fresh batch soon!</span>
+                    </div>
+                  );
+                }
+                if (isQuickLowStock) {
+                  return (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '10px 14px', borderRadius: '10px', color: '#b45309', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
+                      <i className="fa-solid fa-fire" style={{ fontSize: '16px' }}></i>
+                      <span>Only {quickViewProduct.stock} left in stock — order soon to secure priority crafting!</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '6px 12px', borderRadius: '8px', color: '#16a34a', fontSize: '12.5px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '18px' }}>
+                    <i className="fa-solid fa-circle-check"></i>
+                    <span>In Stock ({quickViewProduct.stock || 50} units ready for fast dispatch)</span>
+                  </div>
+                );
+              })()}
+
               {/* Live Mock Engraving Input */}
               {quickViewProduct.is_customizable && (
                 <div className="shop-custom-preview-box">
@@ -1695,51 +1749,76 @@ export default function ShopPage({
               )}
 
               {/* Quantity Selector */}
-              <div className="shop-qty-row">
-                <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#334155' }}>Quantity:</span>
-                <div className="shop-qty-control">
-                  <button
-                    type="button"
-                    className="shop-qty-btn"
-                    onClick={() => setQuickViewQty((q) => Math.max(1, q - 1))}
-                  >
-                    -
-                  </button>
-                  <span className="shop-qty-value">{quickViewQty}</span>
-                  <button
-                    type="button"
-                    className="shop-qty-btn"
-                    onClick={() => setQuickViewQty((q) => q + 1)}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+              {(() => {
+                const isQuickOutOfStock = quickViewProduct.in_stock === false || (quickViewProduct.stock !== undefined && quickViewProduct.stock !== null && Number(quickViewProduct.stock) <= 0);
+                const maxStock = quickViewProduct.stock !== undefined && quickViewProduct.stock !== null ? Number(quickViewProduct.stock) : 99;
+
+                return (
+                  <div className="shop-qty-row">
+                    <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#334155' }}>Quantity:</span>
+                    <div className="shop-qty-control">
+                      <button
+                        type="button"
+                        className="shop-qty-btn"
+                        disabled={isQuickOutOfStock || quickViewQty <= 1}
+                        onClick={() => setQuickViewQty((q) => Math.max(1, q - 1))}
+                      >
+                        -
+                      </button>
+                      <span className="shop-qty-value">{isQuickOutOfStock ? 0 : quickViewQty}</span>
+                      <button
+                        type="button"
+                        className="shop-qty-btn"
+                        disabled={isQuickOutOfStock || quickViewQty >= maxStock}
+                        onClick={() => setQuickViewQty((q) => Math.min(maxStock, q + 1))}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="shop-card-add-btn"
-                  style={{ flex: 1 }}
-                  onClick={() => {
-                    handleAddToCartWithCustom(quickViewProduct, quickViewQty, customEngravingText);
-                    setQuickViewProduct(null);
-                  }}
-                >
-                  <i className="fa-solid fa-cart-shopping"></i> Add to Bag (₹{(quickViewProduct.price * quickViewQty).toLocaleString()})
-                </button>
-                <button
-                  type="button"
-                  className={`shop-card-wish-btn ${isInWishlist(quickViewProduct.id) ? 'active' : ''}`}
-                  style={{ position: 'static', width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0 }}
-                  onClick={() => onAddToWishlist && onAddToWishlist(quickViewProduct)}
-                  title="Save to Wishlist"
-                  aria-label="Save to Wishlist"
-                >
-                  <i className={isInWishlist(quickViewProduct.id) ? 'fa-solid fa-heart' : 'fa-regular fa-heart'}></i>
-                </button>
-              </div>
+              {(() => {
+                const isQuickOutOfStock = quickViewProduct.in_stock === false || (quickViewProduct.stock !== undefined && quickViewProduct.stock !== null && Number(quickViewProduct.stock) <= 0);
+
+                return (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className={`shop-card-add-btn ${isQuickOutOfStock ? 'disabled' : ''}`}
+                      disabled={isQuickOutOfStock}
+                      style={{ flex: 1 }}
+                      onClick={() => {
+                        if (isQuickOutOfStock) return;
+                        handleAddToCartWithCustom(quickViewProduct, quickViewQty, customEngravingText);
+                        setQuickViewProduct(null);
+                      }}
+                    >
+                      {isQuickOutOfStock ? (
+                        <>
+                          <i className="fa-solid fa-ban"></i> Out of Stock
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-cart-shopping"></i> Add to Bag (₹{(quickViewProduct.price * quickViewQty).toLocaleString()})
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className={`shop-card-wish-btn ${isInWishlist(quickViewProduct.id) ? 'active' : ''}`}
+                      style={{ position: 'static', width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0 }}
+                      onClick={() => onAddToWishlist && onAddToWishlist(quickViewProduct)}
+                      title="Save to Wishlist"
+                      aria-label="Save to Wishlist"
+                    >
+                      <i className={isInWishlist(quickViewProduct.id) ? 'fa-solid fa-heart' : 'fa-regular fa-heart'}></i>
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Assurance list */}
               <div style={{ display: 'flex', gap: '16px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>

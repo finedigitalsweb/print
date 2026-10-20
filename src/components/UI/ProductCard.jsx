@@ -13,12 +13,21 @@ export default function ProductCard({
     ? Math.round(((product.old_price - product.price) / product.old_price) * 100)
     : 0;
 
+  const isOutOfStock = product.in_stock === false || (product.stock !== undefined && product.stock !== null && Number(product.stock) <= 0);
+  const isLowStock = !isOutOfStock && product.stock !== undefined && product.stock !== null && Number(product.stock) > 0 && Number(product.stock) <= 5;
+
   return (
-    <div className="prod-card premium-deal-card">
+    <div className={`prod-card premium-deal-card ${isOutOfStock ? 'is-out-of-stock' : ''}`}>
       {/* 1. Image Area with Badges & Doodles */}
       <div className="prod-img-box">
-        {hasDiscount && (
-          <span className="badge-sale">-{discountPercent}%</span>
+        {isOutOfStock ? (
+          <span className="badge-out-of-stock" title="Currently Sold Out">
+            <i className="fa-solid fa-ban"></i> Out of Stock
+          </span>
+        ) : (
+          hasDiscount && (
+            <span className="badge-sale">-{discountPercent}%</span>
+          )
         )}
 
         <button
@@ -68,7 +77,14 @@ export default function ProductCard({
 
       {/* 2. Product Information Area */}
       <div className="prod-info">
-        <span className="prod-cat">{product.cat_name || 'GENERAL'}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="prod-cat">{product.cat_name || 'GENERAL'}</span>
+          {isLowStock && (
+            <span className="prod-stock-pill-low" title="Low stock urgency">
+              <i className="fa-solid fa-fire"></i> Only {product.stock} left
+            </span>
+          )}
+        </div>
 
         <a
           href={`#product-${product.id}`}
@@ -100,15 +116,27 @@ export default function ProductCard({
         {/* 3. Integrated Add To Cart Pill Bar */}
         <button
           type="button"
-          className="deal-cart-action-btn"
-          onClick={() => onAddToCart(product)}
+          className={`deal-cart-action-btn ${isOutOfStock ? 'out-of-stock-btn' : ''}`}
+          disabled={isOutOfStock}
+          onClick={() => !isOutOfStock && onAddToCart(product)}
+          title={isOutOfStock ? 'Currently out of stock' : 'Add to Cart'}
         >
           <span className="cart-text">
-            <i className="fa-solid fa-cart-shopping"></i> Add to Cart
+            {isOutOfStock ? (
+              <>
+                <i className="fa-solid fa-ban"></i> Sold Out
+              </>
+            ) : (
+              <>
+                <i className="fa-solid fa-cart-shopping"></i> Add to Cart
+              </>
+            )}
           </span>
-          <span className="cart-arrow-circle">
-            <i className="fa-solid fa-arrow-right"></i>
-          </span>
+          {!isOutOfStock && (
+            <span className="cart-arrow-circle">
+              <i className="fa-solid fa-arrow-right"></i>
+            </span>
+          )}
         </button>
       </div>
     </div>
