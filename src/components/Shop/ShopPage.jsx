@@ -1643,29 +1643,7 @@ export default function ShopPage({
                 className="shop-quickview-img"
               />
               {customEngravingText && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '24px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'rgba(15, 23, 42, 0.85)',
-                    color: '#d4af37',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    fontFamily: 'serif',
-                    fontSize: '14px',
-                    letterSpacing: '2px',
-                    textTransform: 'uppercase',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                    border: '1px solid rgba(212, 175, 55, 0.4)',
-                    backdropFilter: 'blur(6px)',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '85%',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}
-                >
+                <div className="shop-quickview-engraving-badge">
                   ✨ Engraved: "{customEngravingText}"
                 </div>
               )}
