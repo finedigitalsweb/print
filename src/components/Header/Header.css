@@ -1386,34 +1386,15 @@
   .mobile-drawer-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    cursor: pointer;
   }
 
   .mobile-drawer-logo {
-    height: 36px;
+    height: 42px;
+    max-width: 190px;
     width: auto;
     object-fit: contain;
-  }
-
-  .mobile-drawer-brand-text {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .mobile-drawer-title {
-    font-size: 13.5px;
-    font-weight: 800;
-    letter-spacing: -0.2px;
-    color: #1e293b;
-    line-height: 1.2;
-  }
-
-  .mobile-drawer-subtitle {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    color: #c40b90;
-    text-transform: uppercase;
+    display: block;
   }
 
   .mobile-drawer-close-btn {

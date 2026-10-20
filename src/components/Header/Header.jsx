@@ -750,12 +750,7 @@ export default function Header({
                 src={headerContent?.brand?.logoUrl || logoImg}
                 alt={headerContent?.brand?.logoAlt || 'Fine Gift Studio'}
                 className="mobile-drawer-logo"
-                onError={(e) => { e.target.style.display = 'none'; }}
               />
-              <div className="mobile-drawer-brand-text">
-                <span className="mobile-drawer-title">{headerContent?.brand?.title || 'FINE GIFT STUDIO'}</span>
-                <span className="mobile-drawer-subtitle">{headerContent?.brand?.subtitle || '— PRINT YOUR IDEAS —'}</span>
-              </div>
             </div>
             <button
               type="button"
