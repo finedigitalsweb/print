@@ -1148,7 +1148,7 @@ export default function UserDashboard({
                     </button>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
+                  <div className="dashboard-wishlist-grid">
                     {wishlist.map((item) => (
                       <div
                         key={item.id}
