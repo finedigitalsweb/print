@@ -14,6 +14,28 @@ export default function EngagementGiftsPage({
 }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeReviewIdx, setActiveReviewIdx] = useState(0);
+  const reviewsRowRef = React.useRef(null);
+
+  const scrollToReview = (index) => {
+    setActiveReviewIdx(index);
+    if (reviewsRowRef.current && reviewsRowRef.current.children[index]) {
+      reviewsRowRef.current.children[index].scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest'
+      });
+    }
+  };
+
+  const handleReviewsScroll = (e) => {
+    const el = e.currentTarget;
+    if (!el || !el.children || el.children.length === 0) return;
+    const cardWidth = el.children[0].offsetWidth + 16;
+    const calculatedIdx = Math.round(el.scrollLeft / cardWidth);
+    if (calculatedIdx >= 0 && calculatedIdx < reviewsList.length && calculatedIdx !== activeReviewIdx) {
+      setActiveReviewIdx(calculatedIdx);
+    }
+  };
 
   // Safely merge incoming occasionData with defaults
   const occasion = {
@@ -561,17 +583,22 @@ export default function EngagementGiftsPage({
               <button
                 type="button"
                 className="review-arrow-btn prev"
-                onClick={() => setActiveReviewIdx((prev) => (prev > 0 ? prev - 1 : reviewsList.length - 1))}
+                onClick={() => scrollToReview(activeReviewIdx > 0 ? activeReviewIdx - 1 : reviewsList.length - 1)}
                 aria-label="Previous review"
               >
                 <i className="fa-solid fa-chevron-left"></i>
               </button>
 
-              <div className="reviews-cards-row">
+              <div
+                className="reviews-cards-row"
+                ref={reviewsRowRef}
+                onScroll={handleReviewsScroll}
+              >
                 {reviewsList.map((rev, idx) => (
                   <div
                     key={rev.id || idx}
                     className={`review-card ${idx === activeReviewIdx ? 'highlighted' : ''}`}
+                    onClick={() => scrollToReview(idx)}
                   >
                     <div className="review-top-row">
                       <div className="review-stars">
@@ -599,7 +626,7 @@ export default function EngagementGiftsPage({
               <button
                 type="button"
                 className="review-arrow-btn next"
-                onClick={() => setActiveReviewIdx((prev) => (prev < reviewsList.length - 1 ? prev + 1 : 0))}
+                onClick={() => scrollToReview(activeReviewIdx < reviewsList.length - 1 ? activeReviewIdx + 1 : 0)}
                 aria-label="Next review"
               >
                 <i className="fa-solid fa-chevron-right"></i>
@@ -612,7 +639,7 @@ export default function EngagementGiftsPage({
                   key={i}
                   type="button"
                   className={`review-dot ${i === activeReviewIdx ? 'active' : ''}`}
-                  onClick={() => setActiveReviewIdx(i)}
+                  onClick={() => scrollToReview(i)}
                   aria-label={`Slide ${i + 1}`}
                 ></button>
               ))}

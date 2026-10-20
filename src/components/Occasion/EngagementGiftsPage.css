@@ -1078,8 +1078,37 @@
   .why-choose-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .reviews-carousel-wrap {
+    display: block;
+    position: relative;
+    width: 100%;
+  }
   .reviews-cards-row {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    gap: 16px;
+    padding: 12px 6px 20px;
+    width: 100%;
+    box-sizing: border-box;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .reviews-cards-row::-webkit-scrollbar {
+    display: none;
+  }
+  .review-card {
+    flex: 0 0 84%;
+    min-width: 275px;
+    max-width: 340px;
+    scroll-snap-align: center;
+    box-sizing: border-box;
+  }
+  .review-arrow-btn {
+    display: none;
   }
   .newsletter-banner-box {
     flex-direction: column;
