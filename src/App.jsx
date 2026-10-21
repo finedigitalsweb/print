@@ -33,6 +33,10 @@ import { apiCreateOrder, apiGetProducts, apiGetCategories, apiGetOrders, safeSav
 // Helper to ensure header nav items contain all default items (heals old/truncated caches)
 function mergeDefaultNavItems(items) {
   if (!Array.isArray(items) || items.length === 0) return DEFAULT_HEADER_NAV_ITEMS;
+  const hasNewMenu = items.some((i) => i.id === 'nav_children');
+  if (!hasNewMenu) {
+    return DEFAULT_HEADER_NAV_ITEMS;
+  }
   const existingIds = new Set(items.map((i) => i.id));
   const merged = [...items];
   DEFAULT_HEADER_NAV_ITEMS.forEach((defaultItem) => {
@@ -82,133 +86,125 @@ export default function App() {
     } catch {}
   };
 
-  // Sync initial live products & categories from remote MySQL database
+  // Sync initial live products & categories from remote MySQL database in parallel
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchLiveData = async () => {
-      try {
-        const remoteProds = await apiGetProducts();
-        if (Array.isArray(remoteProds) && remoteProds.length > 0) {
-          setProducts(remoteProds);
-          safeSaveProductsCache(remoteProds);
-        }
-      } catch (e) {
-        console.warn('Initial products sync:', e);
-      }
+      // 1. Core critical storefront data in parallel
+      const corePromises = [
+        apiGetProducts().then((remoteProds) => {
+          if (!isCancelled && Array.isArray(remoteProds) && remoteProds.length > 0) {
+            setProducts(remoteProds);
+            safeSaveProductsCache(remoteProds);
+          }
+        }).catch((e) => console.warn('Products sync:', e)),
 
-      try {
-        const remoteCats = await apiGetCategories();
-        if (Array.isArray(remoteCats) && remoteCats.length > 0) {
-          setCategories(remoteCats);
-          try { localStorage.setItem('finegift_admin_categories', JSON.stringify(remoteCats)); } catch {}
-        }
-      } catch (e) {
-        console.warn('Initial categories sync:', e);
-      }
+        apiGetCategories().then((remoteCats) => {
+          if (!isCancelled && Array.isArray(remoteCats) && remoteCats.length > 0) {
+            setCategories(remoteCats);
+            try { localStorage.setItem('finegift_admin_categories', JSON.stringify(remoteCats)); } catch {}
+          }
+        }).catch((e) => console.warn('Categories sync:', e)),
 
-      try {
-        const remoteLegal = await apiGetCmsContent('legal_content');
-        if (remoteLegal && typeof remoteLegal === 'object') {
-          setLegalContent(prev => ({
-            ...prev,
-            ...remoteLegal,
-            terms: { ...DEFAULT_LEGAL_CONTENT.terms, ...(remoteLegal.terms || {}) },
-            privacy: { ...DEFAULT_LEGAL_CONTENT.privacy, ...(remoteLegal.privacy || {}) },
-            shipping: { ...DEFAULT_LEGAL_CONTENT.shipping, ...(remoteLegal.shipping || {}) },
-            returns: { ...DEFAULT_LEGAL_CONTENT.returns, ...(remoteLegal.returns || {}) },
-          }));
-          try { localStorage.setItem('finegift_legal_content', JSON.stringify(remoteLegal)); } catch {}
-        }
-      } catch (e) {
-        console.warn('Initial legal content sync:', e);
-      }
-
-      try {
-        const remoteHF = await apiGetCmsContent('header_footer_content');
-        if (remoteHF && typeof remoteHF === 'object') {
-          setHeaderFooterContent(prev => ({
-            ...prev,
-            ...remoteHF,
-            header: {
-              ...DEFAULT_HEADER_FOOTER_CONTENT.header,
-              ...(prev.header || {}),
-              ...(remoteHF.header || {}),
-              navItems: mergeDefaultNavItems(remoteHF.header?.navItems || prev.header?.navItems || DEFAULT_HEADER_FOOTER_CONTENT.header.navItems),
-              occasionMenu: remoteHF.header?.occasionMenu || prev.header?.occasionMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.occasionMenu,
-              corporateMenu: remoteHF.header?.corporateMenu || prev.header?.corporateMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.corporateMenu,
-              visibility: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.visibility, ...(remoteHF.header?.visibility || {}) },
-              topBar: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.topBar, ...(remoteHF.header?.topBar || {}) },
-              socialLinks: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.socialLinks, ...(remoteHF.header?.socialLinks || {}) },
-              brand: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.brand, ...(remoteHF.header?.brand || {}) },
-              search: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.search, ...(remoteHF.header?.search || {}) },
-              contact: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.contact, ...(remoteHF.header?.contact || {}) },
-            },
-            footer: {
-              ...DEFAULT_HEADER_FOOTER_CONTENT.footer,
-              ...(prev.footer || {}),
-              ...(remoteHF.footer || {}),
-              quickLinks: remoteHF.footer?.quickLinks || prev.footer?.quickLinks || DEFAULT_HEADER_FOOTER_CONTENT.footer.quickLinks,
-              customerSupport: remoteHF.footer?.customerSupport || prev.footer?.customerSupport || DEFAULT_HEADER_FOOTER_CONTENT.footer.customerSupport,
-              visibility: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.visibility, ...(remoteHF.footer?.visibility || {}) },
-              expressBanner: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.expressBanner, ...(remoteHF.footer?.expressBanner || {}) },
-              instagramSection: {
-                ...DEFAULT_HEADER_FOOTER_CONTENT.footer.instagramSection,
-                ...(remoteHF.footer?.instagramSection || {}),
-                posts: remoteHF.footer?.instagramSection?.posts || DEFAULT_HEADER_FOOTER_CONTENT.footer.instagramSection.posts,
+        apiGetCmsContent('header_footer_content').then((remoteHF) => {
+          if (!isCancelled && remoteHF && typeof remoteHF === 'object') {
+            setHeaderFooterContent(prev => ({
+              ...prev,
+              ...remoteHF,
+              header: {
+                ...DEFAULT_HEADER_FOOTER_CONTENT.header,
+                ...(prev.header || {}),
+                ...(remoteHF.header || {}),
+                navItems: mergeDefaultNavItems(remoteHF.header?.navItems || prev.header?.navItems || DEFAULT_HEADER_FOOTER_CONTENT.header.navItems),
+                occasionMenu: remoteHF.header?.occasionMenu || prev.header?.occasionMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.occasionMenu,
+                corporateMenu: remoteHF.header?.corporateMenu || prev.header?.corporateMenu || DEFAULT_HEADER_FOOTER_CONTENT.header.corporateMenu,
+                visibility: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.visibility, ...(remoteHF.header?.visibility || {}) },
+                topBar: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.topBar, ...(remoteHF.header?.topBar || {}) },
+                socialLinks: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.socialLinks, ...(remoteHF.header?.socialLinks || {}) },
+                brand: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.brand, ...(remoteHF.header?.brand || {}) },
+                search: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.search, ...(remoteHF.header?.search || {}) },
+                contact: { ...DEFAULT_HEADER_FOOTER_CONTENT.header.contact, ...(remoteHF.header?.contact || {}) },
               },
-              newsletter: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.newsletter, ...(remoteHF.footer?.newsletter || {}) },
-              brand: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.brand, ...(remoteHF.footer?.brand || {}) },
-              socialLinks: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.socialLinks, ...(remoteHF.footer?.socialLinks || {}) },
-              contactInfo: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.contactInfo, ...(remoteHF.footer?.contactInfo || {}) },
-              bottomBar: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.bottomBar, ...(remoteHF.footer?.bottomBar || {}) },
-            },
-          }));
-          try { localStorage.setItem('finegift_header_footer_content', JSON.stringify(remoteHF)); } catch {}
-        }
-      } catch (e) {
-        console.warn('Initial header/footer sync:', e);
-      }
+              footer: {
+                ...DEFAULT_HEADER_FOOTER_CONTENT.footer,
+                ...(prev.footer || {}),
+                ...(remoteHF.footer || {}),
+                quickLinks: remoteHF.footer?.quickLinks || prev.footer?.quickLinks || DEFAULT_HEADER_FOOTER_CONTENT.footer.quickLinks,
+                customerSupport: remoteHF.footer?.customerSupport || prev.footer?.customerSupport || DEFAULT_HEADER_FOOTER_CONTENT.footer.customerSupport,
+                visibility: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.visibility, ...(remoteHF.footer?.visibility || {}) },
+                expressBanner: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.expressBanner, ...(remoteHF.footer?.expressBanner || {}) },
+                instagramSection: {
+                  ...DEFAULT_HEADER_FOOTER_CONTENT.footer.instagramSection,
+                  ...(remoteHF.footer?.instagramSection || {}),
+                  posts: remoteHF.footer?.instagramSection?.posts || DEFAULT_HEADER_FOOTER_CONTENT.footer.instagramSection.posts,
+                },
+                newsletter: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.newsletter, ...(remoteHF.footer?.newsletter || {}) },
+                brand: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.brand, ...(remoteHF.footer?.brand || {}) },
+                socialLinks: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.socialLinks, ...(remoteHF.footer?.socialLinks || {}) },
+                contactInfo: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.contactInfo, ...(remoteHF.footer?.contactInfo || {}) },
+                bottomBar: { ...DEFAULT_HEADER_FOOTER_CONTENT.footer.bottomBar, ...(remoteHF.footer?.bottomBar || {}) },
+              },
+            }));
+            try { localStorage.setItem('finegift_header_footer_content', JSON.stringify(remoteHF)); } catch {}
+          }
+        }).catch((e) => console.warn('Header/footer sync:', e))
+      ];
 
-      try {
-        const remoteOrders = await apiGetOrders();
-        if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
-          setOrders(remoteOrders);
-          try { localStorage.setItem('finegift_orders', JSON.stringify(remoteOrders)); } catch {}
-        }
-      } catch (e) {
-        console.warn('Initial orders sync:', e);
-      }
+      await Promise.allSettled(corePromises);
 
-      try {
-        const remoteOccasions = await apiGetCmsContent('occasion_content');
-        if (remoteOccasions && Array.isArray(remoteOccasions.occasions) && remoteOccasions.occasions.length > 0) {
-          setOccasionsContent(remoteOccasions);
-          try { localStorage.setItem('finegift_occasions_content', JSON.stringify(remoteOccasions)); } catch {}
-        }
-      } catch (e) {
-        console.warn('Initial occasions content sync:', e);
-      }
+      // 2. Secondary non-critical CMS items in background
+      const secondaryPromises = [
+        apiGetCmsContent('occasion_content').then((remoteOccasions) => {
+          if (!isCancelled && remoteOccasions && Array.isArray(remoteOccasions.occasions) && remoteOccasions.occasions.length > 0) {
+            setOccasionsContent(remoteOccasions);
+            try { localStorage.setItem('finegift_occasions_content', JSON.stringify(remoteOccasions)); } catch {}
+          }
+        }).catch(() => {}),
 
-      try {
-        const remoteBlog = await apiGetCmsContent('blog_content');
-        if (remoteBlog && Array.isArray(remoteBlog.posts) && remoteBlog.posts.length > 0) {
-          const cleanedPosts = remoteBlog.posts.filter((p) =>
-            !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) &&
-            !p.slug?.includes('demo') &&
-            p.id !== 'post-1792479277181'
-          );
-          const sanitizedBlog = {
-            ...remoteBlog,
-            posts: cleanedPosts.length > 0 ? cleanedPosts : DEFAULT_BLOG_POSTS
-          };
-          setBlogContent(sanitizedBlog);
-          try { localStorage.setItem('finegift_blog_content', JSON.stringify(sanitizedBlog)); } catch {}
-        }
-      } catch (e) {
-        console.warn('Initial blog content sync:', e);
-      }
+        apiGetCmsContent('blog_content').then((remoteBlog) => {
+          if (!isCancelled && remoteBlog && Array.isArray(remoteBlog.posts) && remoteBlog.posts.length > 0) {
+            const cleanedPosts = remoteBlog.posts.filter((p) =>
+              !['post-2', 'post-3', 'post-4', 'post-5', 'post-6'].includes(p.id) &&
+              !p.slug?.includes('demo') &&
+              p.id !== 'post-1792479277181'
+            );
+            const sanitizedBlog = {
+              ...remoteBlog,
+              posts: cleanedPosts.length > 0 ? cleanedPosts : DEFAULT_BLOG_POSTS
+            };
+            setBlogContent(sanitizedBlog);
+            try { localStorage.setItem('finegift_blog_content', JSON.stringify(sanitizedBlog)); } catch {}
+          }
+        }).catch(() => {}),
+
+        apiGetCmsContent('legal_content').then((remoteLegal) => {
+          if (!isCancelled && remoteLegal && typeof remoteLegal === 'object') {
+            setLegalContent(prev => ({
+              ...prev,
+              ...remoteLegal,
+              terms: { ...DEFAULT_LEGAL_CONTENT.terms, ...(remoteLegal.terms || {}) },
+              privacy: { ...DEFAULT_LEGAL_CONTENT.privacy, ...(remoteLegal.privacy || {}) },
+              shipping: { ...DEFAULT_LEGAL_CONTENT.shipping, ...(remoteLegal.shipping || {}) },
+              returns: { ...DEFAULT_LEGAL_CONTENT.returns, ...(remoteLegal.returns || {}) },
+            }));
+            try { localStorage.setItem('finegift_legal_content', JSON.stringify(remoteLegal)); } catch {}
+          }
+        }).catch(() => {}),
+
+        apiGetOrders().then((remoteOrders) => {
+          if (!isCancelled && Array.isArray(remoteOrders) && remoteOrders.length > 0) {
+            setOrders(remoteOrders);
+            try { localStorage.setItem('finegift_orders', JSON.stringify(remoteOrders)); } catch {}
+          }
+        }).catch(() => {})
+      ];
+
+      Promise.allSettled(secondaryPromises);
     };
 
     fetchLiveData();
+    return () => { isCancelled = true; };
   }, []);
 
   // Listen for product, category & order updates from Admin or other tabs in real-time
@@ -1150,7 +1146,7 @@ export default function App() {
         if (queryPart) {
           const params = new URLSearchParams(queryPart);
           const sub = params.get('sub');
-          const subsub = params.get('subsub');
+          const subsub = params.get('subsub') || params.get('sub_sub');
           setShopSubCategory(sub ? decodeURIComponent(sub) : 'all');
           setShopSubSubCategory(subsub ? decodeURIComponent(subsub) : 'all');
         } else {
@@ -1163,7 +1159,7 @@ export default function App() {
         setShopSubSubCategory('all');
       }
       setCurrentPage('shop');
-      try { window.history.pushState({}, '', '/shop'); } catch {}
+      try { window.history.pushState({}, '', path.startsWith('/category/') ? path : '/shop'); } catch {}
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (path.startsWith('/contact') || path === '#contact' || path === '#contact-page') {
       setCurrentPage('contact');
@@ -1229,7 +1225,7 @@ export default function App() {
     currentPage === 'admin'
       ? '/admin'
       : currentPage === 'shop'
-      ? '/shop'
+      ? (shopCategory && shopCategory !== 'all' ? `/category/${shopCategory}` : '/shop')
       : currentPage === 'about'
       ? '/about-us'
       : currentPage === 'contact'

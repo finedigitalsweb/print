@@ -1,20 +1,90 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { query, testConnection } from './db.js';
 
 const app = express();
 const PORT = process.env.PORT || 3005;
 
 app.use(cors());
+app.use(compression({ threshold: 1024 }));
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ extended: true, limit: '30mb' }));
 
-// Prevent browser/proxy caching for all API responses
+// ── HIGH-SPEED IN-MEMORY CACHE FOR REMOTE MYSQL ────────────────────────
+const memoryCache = {
+  products: null,
+  productsExpiry: 0,
+  rawImages: new Map(),
+  categories: null,
+  categoriesExpiry: 0,
+  cms: new Map(),
+  media: null,
+  mediaExpiry: 0
+};
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
+
+export function invalidateProductsCache() {
+  memoryCache.products = null;
+  memoryCache.productsExpiry = 0;
+  memoryCache.rawImages.clear();
+}
+
+export function invalidateCategoriesCache() {
+  memoryCache.categories = null;
+  memoryCache.categoriesExpiry = 0;
+}
+
+export function invalidateCmsCache(key) {
+  if (key) memoryCache.cms.delete(key);
+  else memoryCache.cms.clear();
+}
+
+export function invalidateMediaCache() {
+  memoryCache.media = null;
+  memoryCache.mediaExpiry = 0;
+}
+
+// Background prewarm on startup
+setTimeout(() => {
+  prewarmCache();
+}, 600);
+
+async function prewarmCache() {
+  try {
+    const products = await query('SELECT * FROM products ORDER BY created_at DESC');
+    products.forEach((p) => {
+      if (p.image_url && typeof p.image_url === 'string' && p.image_url.startsWith('data:image/')) {
+        memoryCache.rawImages.set(p.id, p.image_url);
+      }
+    });
+    memoryCache.products = products.map(formatProduct);
+    memoryCache.productsExpiry = Date.now() + CACHE_TTL_MS;
+    console.log(`⚡ Prewarmed ${memoryCache.products.length} products in memory cache.`);
+  } catch (e) {
+    console.warn('[Cache Prewarm Warning]:', e.message);
+  }
+
+  try {
+    const categories = await query('SELECT * FROM categories ORDER BY name ASC');
+    memoryCache.categories = categories;
+    memoryCache.categoriesExpiry = Date.now() + CACHE_TTL_MS;
+    console.log(`⚡ Prewarmed ${categories.length} categories in memory cache.`);
+  } catch (e) {
+    console.warn('[Cache Prewarm Warning]:', e.message);
+  }
+}
+
+
+// Client cache headers
 app.use('/api', (req, res, next) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
+  if (req.method === 'GET') {
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+  } else {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  }
   next();
 });
 
@@ -22,8 +92,16 @@ app.use('/api', (req, res, next) => {
 function formatProduct(p) {
   if (!p) return null;
   const stockNum = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
+
+  // Stream inline heavy base64 data URIs via ultra-fast binary image endpoint
+  let imageUrl = p.image_url;
+  if (typeof imageUrl === 'string' && imageUrl.startsWith('data:image/')) {
+    imageUrl = `/api/products/${p.id}/image`;
+  }
+
   return {
     ...p,
+    image_url: imageUrl || '/assets/images/cups-product.avif',
     sub_cat_name: p.sub_cat_name || null,
     sub_sub_cat_name: p.sub_sub_cat_name || null,
     price: Number(p.price) || 0,
@@ -51,18 +129,78 @@ app.get('/api/health', async (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    database: dbStatus
+    database: dbStatus,
+    cache: {
+      productsCached: !!memoryCache.products,
+      categoriesCached: !!memoryCache.categories
+    }
   });
 });
 
-// ── 2. PRODUCTS API ───────────────────────────────────────────────────
+// ── 2. PRODUCTS API (Ultra-fast In-Memory Caching) ─────────────────────
 app.get('/api/products', async (req, res) => {
   try {
+    const now = Date.now();
+    const forceRefresh = req.query.refresh === '1';
+    if (!forceRefresh && memoryCache.products && now < memoryCache.productsExpiry) {
+      res.set('X-Cache', 'HIT');
+      return res.json({ success: true, data: memoryCache.products });
+    }
+
     const products = await query('SELECT * FROM products ORDER BY created_at DESC');
+    if (!memoryCache.rawImages) memoryCache.rawImages = new Map();
+    products.forEach((p) => {
+      if (p.image_url && typeof p.image_url === 'string' && p.image_url.startsWith('data:image/')) {
+        memoryCache.rawImages.set(p.id, p.image_url);
+      }
+    });
     const formatted = products.map(formatProduct);
+    memoryCache.products = formatted;
+    memoryCache.productsExpiry = now + CACHE_TTL_MS;
+    res.set('X-Cache', 'MISS');
     res.json({ success: true, data: formatted });
   } catch (err) {
+    if (memoryCache.products) {
+      console.warn('[Products API]: Remote MySQL error, serving fallback cache:', err.message);
+      res.set('X-Cache', 'STALE');
+      return res.json({ success: true, data: memoryCache.products, fallback: true });
+    }
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Binary Streaming Endpoint for Product Images (Fast binary buffer, cached in browser for 7 days)
+app.get('/api/products/:id/image', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let rawImageUrl = null;
+    if (memoryCache.rawImages && memoryCache.rawImages.has(id)) {
+      rawImageUrl = memoryCache.rawImages.get(id);
+    } else {
+      const rows = await query('SELECT image_url FROM products WHERE id = ?', [id]);
+      if (rows.length === 0 || !rows[0].image_url) {
+        return res.redirect('/assets/images/cups-product.avif');
+      }
+      rawImageUrl = rows[0].image_url;
+      if (!memoryCache.rawImages) memoryCache.rawImages = new Map();
+      memoryCache.rawImages.set(id, rawImageUrl);
+    }
+
+    if (typeof rawImageUrl === 'string' && rawImageUrl.startsWith('data:image/')) {
+      const match = rawImageUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+      if (match) {
+        const mime = `image/${match[1]}`;
+        const buffer = Buffer.from(match[2], 'base64');
+        res.set('Content-Type', mime);
+        res.set('Cache-Control', 'public, max-age=604800, immutable');
+        res.set('Content-Length', buffer.length);
+        return res.end(buffer);
+      }
+    }
+
+    res.redirect(rawImageUrl || '/assets/images/cups-product.avif');
+  } catch (err) {
+    res.redirect('/assets/images/cups-product.avif');
   }
 });
 
@@ -96,6 +234,7 @@ app.post('/api/products', async (req, res) => {
     );
 
     const [created] = await query('SELECT * FROM products WHERE id = ?', [id]);
+    invalidateProductsCache();
     res.status(201).json({ success: true, data: formatProduct(created) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -130,6 +269,7 @@ app.put('/api/products/:id', async (req, res) => {
       ]
     );
     const [updated] = await query('SELECT * FROM products WHERE id = ?', [id]);
+    invalidateProductsCache();
     res.json({ success: true, data: formatProduct(updated) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -169,6 +309,7 @@ app.delete('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
     await query('DELETE FROM products WHERE id = ?', [id]);
+    invalidateProductsCache();
     res.json({ success: true, message: `Product ${id} deleted` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -178,9 +319,24 @@ app.delete('/api/products/:id', async (req, res) => {
 // ── 3. CATEGORIES API ─────────────────────────────────────────────────
 app.get('/api/categories', async (req, res) => {
   try {
+    const now = Date.now();
+    const forceRefresh = req.query.refresh === '1';
+    if (!forceRefresh && memoryCache.categories && now < memoryCache.categoriesExpiry) {
+      res.set('X-Cache', 'HIT');
+      return res.json({ success: true, data: memoryCache.categories });
+    }
+
     const categories = await query('SELECT * FROM categories ORDER BY name ASC');
+    memoryCache.categories = categories;
+    memoryCache.categoriesExpiry = now + CACHE_TTL_MS;
+    res.set('X-Cache', 'MISS');
     res.json({ success: true, data: categories });
   } catch (err) {
+    if (memoryCache.categories) {
+      console.warn('[Categories API]: Remote MySQL error, serving fallback cache:', err.message);
+      res.set('X-Cache', 'STALE');
+      return res.json({ success: true, data: memoryCache.categories, fallback: true });
+    }
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -196,6 +352,7 @@ app.post('/api/categories', async (req, res) => {
       [id, c.name, slug, c.icon || 'fa-solid fa-gift', c.subcategories || null, Number(c.item_count) || 0, imageUrl]
     );
     const [created] = await query('SELECT * FROM categories WHERE id = ?', [id]);
+    invalidateCategoriesCache();
     res.status(201).json({ success: true, data: created });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -212,6 +369,7 @@ app.put('/api/categories/:id', async (req, res) => {
       [c.name, c.icon || 'fa-solid fa-gift', c.subcategories || null, Number(c.item_count) || 0, imageUrl, id]
     );
     const [updated] = await query('SELECT * FROM categories WHERE id = ?', [id]);
+    invalidateCategoriesCache();
     res.json({ success: true, data: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -222,6 +380,7 @@ app.delete('/api/categories/:id', async (req, res) => {
   try {
     const { id } = req.params;
     await query('DELETE FROM categories WHERE id = ?', [id]);
+    invalidateCategoriesCache();
     res.json({ success: true, message: `Category ${id} deleted` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -595,6 +754,7 @@ app.post('/api/cms/:key', async (req, res) => {
       'INSERT INTO cms_content (content_key, data_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE data_json = VALUES(data_json)',
       [key, dataJson]
     );
+    invalidateCmsCache(key);
     res.json({ success: true, message: `CMS section ${key} saved` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

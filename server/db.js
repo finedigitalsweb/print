@@ -15,11 +15,19 @@ const pool = mysql.createPool({
   connectTimeout: 15000
 });
 
-export async function query(sql, params = []) {
+export async function query(sql, params = [], retries = 1) {
   try {
     const [results] = await pool.execute(sql, params);
     return results;
   } catch (error) {
+    const isConnErr = error.code === 'PROTOCOL_CONNECTION_LOST' || 
+                      error.code === 'ECONNRESET' || 
+                      error.message?.includes('Connection lost') ||
+                      error.message?.includes('closed the connection');
+    if (isConnErr && retries > 0) {
+      console.warn('[MySQL Warning]: Connection lost/reset, retrying query...');
+      return query(sql, params, retries - 1);
+    }
     console.error('[MySQL Query Error]:', error.message, '| SQL:', sql);
     throw error;
   }

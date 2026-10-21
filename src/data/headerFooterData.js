@@ -7,15 +7,189 @@ import logoImg from '../assets/Gift-Studio-Logo.webp';
 import footerCtaImg from '../assets/images/footer-cta-img.avif';
 
 export const DEFAULT_HEADER_NAV_ITEMS = [
-  { id: 'nav_home', label: 'Home', path: '/', icon: 'fa-solid fa-house', type: 'link', visible: true },
-  { id: 'nav_shop', label: 'Shop', path: '/shop', icon: 'fa-solid fa-bag-shopping', type: 'link', visible: true },
-  { id: 'nav_custom', label: 'Custom Design', path: '/shop?filter=custom', icon: 'fa-solid fa-wand-magic-sparkles', type: 'link', visible: true },
-  { id: 'nav_occasion', label: 'Gifts by Occasion', path: '#occasion', icon: 'fa-solid fa-gift', type: 'dropdown-occasion', visible: true },
-  { id: 'nav_category', label: 'Gifts by Category', path: '#category', icon: 'fa-solid fa-table-cells-large', type: 'dropdown-category', visible: true },
-  { id: 'nav_corporate', label: 'Bulk/Corporate Gifts', path: '#corporate', icon: 'fa-solid fa-briefcase', type: 'dropdown-corporate', visible: true },
-  { id: 'nav_about', label: 'About Us', path: '/about-us', icon: 'fa-solid fa-users', type: 'link', visible: true },
-  { id: 'nav_blog', label: 'Blog', path: '/blog', icon: 'fa-solid fa-newspaper', type: 'link', visible: true },
-  { id: 'nav_contact', label: 'Contact Us', path: '/contact', icon: 'fa-solid fa-phone', type: 'dropdown-contact', visible: true }
+  {
+    id: 'nav_home',
+    label: 'Home',
+    path: '/',
+    url: '/',
+    icon: 'fa-solid fa-house',
+    type: 'link',
+    visible: true
+  },
+  {
+    id: 'nav_children',
+    label: 'Children',
+    path: '/category/Children',
+    url: '/category/Children',
+    icon: 'fa-solid fa-child',
+    type: 'dropdown-nested',
+    visible: true,
+    subItems: [
+      {
+        id: 'sub_infants',
+        label: 'Infants',
+        path: '/category/Children?sub=Infants',
+        url: '/category/Children?sub=Infants',
+        icon: 'fa-solid fa-baby',
+        subItems: [
+          {
+            id: 'sub_inf_boys',
+            label: 'Boys',
+            path: '/category/Children?sub=Infants&subsub=Boys',
+            url: '/category/Children?sub=Infants&subsub=Boys',
+            icon: 'fa-solid fa-mars'
+          },
+          {
+            id: 'sub_inf_girls',
+            label: 'Girls',
+            path: '/category/Children?sub=Infants&subsub=Girls',
+            url: '/category/Children?sub=Infants&subsub=Girls',
+            icon: 'fa-solid fa-venus'
+          }
+        ]
+      },
+      {
+        id: 'sub_kids',
+        label: 'Kids',
+        path: '/category/Children?sub=Kids',
+        url: '/category/Children?sub=Kids',
+        icon: 'fa-solid fa-children',
+        subItems: [
+          {
+            id: 'sub_kids_boys',
+            label: 'Boys',
+            path: '/category/Children?sub=Kids&subsub=Boys',
+            url: '/category/Children?sub=Kids&subsub=Boys',
+            icon: 'fa-solid fa-mars'
+          },
+          {
+            id: 'sub_kids_girls',
+            label: 'Girls',
+            path: '/category/Children?sub=Kids&subsub=Girls',
+            url: '/category/Children?sub=Kids&subsub=Girls',
+            icon: 'fa-solid fa-venus'
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'nav_men',
+    label: 'Men',
+    path: '/category/Men',
+    url: '/category/Men',
+    icon: 'fa-solid fa-person',
+    type: 'dropdown-nested',
+    visible: true,
+    subItems: [
+      {
+        id: 'sub_men_engagement',
+        label: 'Engagement',
+        path: '/category/Men?sub=Engagement',
+        url: '/category/Men?sub=Engagement',
+        icon: 'fa-solid fa-ring'
+      }
+    ]
+  },
+  {
+    id: 'nav_women',
+    label: 'Women',
+    path: '/category/Women',
+    url: '/category/Women',
+    icon: 'fa-solid fa-person-dress',
+    type: 'dropdown-nested',
+    visible: true,
+    subItems: [
+      {
+        id: 'sub_women_engagement',
+        label: 'Engagement',
+        path: '/category/Women?sub=Engagement',
+        url: '/category/Women?sub=Engagement',
+        icon: 'fa-solid fa-ring'
+      }
+    ]
+  },
+  {
+    id: 'nav_festivals',
+    label: 'Festivals',
+    path: '/category/Festivals',
+    url: '/category/Festivals',
+    icon: 'fa-solid fa-champagne-glasses',
+    type: 'dropdown-nested',
+    visible: true,
+    subItems: [
+      {
+        id: 'sub_fest_diwali',
+        label: 'Diwali',
+        path: '/category/Festivals?sub=Diwali',
+        url: '/category/Festivals?sub=Diwali',
+        icon: 'fa-solid fa-fire'
+      }
+    ]
+  },
+  {
+    id: 'nav_celebrations',
+    label: 'Celebrations',
+    path: '/category/Celebrations',
+    url: '/category/Celebrations',
+    icon: 'fa-solid fa-cake-candles',
+    type: 'dropdown-nested',
+    visible: true,
+    subItems: [
+      {
+        id: 'sub_cel_bride',
+        label: 'Bride to Be',
+        path: '/category/Celebrations?sub=Bride%20to%20Be',
+        url: '/category/Celebrations?sub=Bride%20to%20Be',
+        icon: 'fa-solid fa-heart'
+      }
+    ]
+  },
+  {
+    id: 'nav_corporate',
+    label: 'Corporate Gifts',
+    path: '/category/Corporate%20Gifts',
+    url: '/category/Corporate%20Gifts',
+    icon: 'fa-solid fa-briefcase',
+    type: 'dropdown-nested',
+    visible: true,
+    subItems: [
+      {
+        id: 'sub_corp_welcome',
+        label: 'Welcome Kit',
+        path: '/category/Corporate%20Gifts?sub=Welcome%20Kit',
+        url: '/category/Corporate%20Gifts?sub=Welcome%20Kit',
+        icon: 'fa-solid fa-box-open'
+      }
+    ]
+  },
+  {
+    id: 'nav_occasions',
+    label: 'Occasions',
+    path: '/category/Occasions',
+    url: '/category/Occasions',
+    icon: 'fa-solid fa-gift',
+    type: 'dropdown-nested',
+    visible: true,
+    subItems: [
+      {
+        id: 'sub_occ_indep',
+        label: 'Independence Day',
+        path: '/category/Occasions?sub=Independence%20Day',
+        url: '/category/Occasions?sub=Independence%20Day',
+        icon: 'fa-solid fa-flag'
+      }
+    ]
+  },
+  {
+    id: 'nav_contact',
+    label: 'Contact Us',
+    path: '/contact',
+    url: '/contact',
+    icon: 'fa-solid fa-phone',
+    type: 'link',
+    visible: true
+  }
 ];
 
 export const DEFAULT_FOOTER_QUICK_LINKS = {

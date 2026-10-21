@@ -745,7 +745,19 @@ export default function ShopPage({
       if (selectedCategory !== 'all') {
         const itemCat = (item.cat_name || '').toLowerCase();
         const targetCat = selectedCategory.toLowerCase();
-        if (!itemCat.includes(targetCat) && item.category_id !== Number(selectedCategory)) {
+        
+        let catMatches = false;
+        if (targetCat === 'children') {
+          catMatches = ['children', 'infants', 'kids', 'boys', 'girls'].some(c => itemCat.includes(c));
+        } else if (targetCat === 'celebrations' || targetCat === 'celebration') {
+          catMatches = itemCat.includes('celebrat');
+        } else if (targetCat === 'occasions' || targetCat === 'occasion') {
+          catMatches = itemCat.includes('occasion') || (Array.isArray(item.occasions) && item.occasions.length > 0);
+        } else {
+          catMatches = itemCat.includes(targetCat) || item.category_id === Number(selectedCategory);
+        }
+
+        if (!catMatches) {
           return false;
         }
       }
@@ -754,7 +766,15 @@ export default function ShopPage({
       if (selectedSubCategory !== 'all') {
         const itemSubCat = (item.sub_cat_name || '').toLowerCase();
         const targetSubCat = selectedSubCategory.toLowerCase();
-        if (itemSubCat !== targetSubCat) {
+        const itemCat = (item.cat_name || '').toLowerCase();
+
+        let subMatches = (itemSubCat === targetSubCat);
+        if (!subMatches && (targetSubCat === 'infants' || targetSubCat === 'kids')) {
+          if (itemCat === targetSubCat) {
+            subMatches = true;
+          }
+        }
+        if (!subMatches) {
           return false;
         }
       }
@@ -762,8 +782,16 @@ export default function ShopPage({
       // Level 2 Subcategory filter (Sub-subcategory)
       if (selectedSubSubCategory !== 'all') {
         const itemSubSubCat = (item.sub_sub_cat_name || '').toLowerCase();
+        const itemSubCat = (item.sub_cat_name || '').toLowerCase();
         const targetSubSubCat = selectedSubSubCategory.toLowerCase();
-        if (itemSubSubCat !== targetSubSubCat) {
+
+        let subSubMatches = (itemSubSubCat === targetSubSubCat);
+        if (!subSubMatches && (targetSubSubCat === 'boys' || targetSubSubCat === 'girls')) {
+          if (itemSubCat === targetSubSubCat) {
+            subSubMatches = true;
+          }
+        }
+        if (!subSubMatches) {
           return false;
         }
       }

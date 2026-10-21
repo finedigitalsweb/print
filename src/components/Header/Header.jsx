@@ -27,6 +27,7 @@ export default function Header({
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openMobileMega, setOpenMobileMega] = useState(null);
+  const [openMobileSubCat, setOpenMobileSubCat] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState({ id: 'all', name: 'All categories' });
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,6 +92,8 @@ export default function Header({
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      setOpenMobileMega(null);
+      setOpenMobileSubCat(null);
     }
 
     const handleKeyDown = (e) => {
@@ -108,6 +111,10 @@ export default function Header({
 
   const handleMobileMegaToggle = (key) => {
     setOpenMobileMega((prev) => (prev === key ? null : key));
+  };
+
+  const handleMobileSubToggle = (key) => {
+    setOpenMobileSubCat((prev) => (prev === key ? null : key));
   };
 
   const handleSearchSubmit = (e) => {
@@ -627,32 +634,137 @@ export default function Header({
                   );
                 }
 
-                if (item.type === 'dropdown-custom' || (Array.isArray(item.subItems) && item.subItems.length > 0)) {
+                if (item.type === 'dropdown-nested' || item.type === 'dropdown-custom' || (Array.isArray(item.subItems) && item.subItems.length > 0)) {
+                  const hasNestedLevel3 = (item.subItems || []).some((sub) => Array.isArray(sub.subItems) && sub.subItems.length > 0);
+                  const isItemActive = item.path === '/'
+                    ? activePath === '/'
+                    : (activePath === item.path || (item.path && item.path !== '/' && activePath.startsWith(item.path)));
+
                   return (
                     <div key={item.id || item.label} className="nav-tab-dropdown-wrap">
-                      <button type="button" className="nav-tab-item nav-dropdown-btn">
+                      <a
+                        href={item.path || '#'}
+                        className={`nav-tab-item nav-dropdown-btn ${isItemActive ? 'active-nav-pill' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleNavLinkClick(item.path);
+                        }}
+                      >
                         {item.icon && <i className={item.icon}></i>}
                         <span>{item.label}</span>
                         <i className="fa-solid fa-chevron-down nav-chevron"></i>
-                      </button>
+                      </a>
 
-                      <div className="mega-dropdown-menu simple-dropdown-menu">
-                        <div className="dropdown-simple-list">
-                          {(item.subItems || []).map((sub, sIdx) => (
+                      {hasNestedLevel3 ? (
+                        <div className="mega-dropdown-menu nested-categories-menu">
+                          <div className="nested-categories-header">
+                            <div className="nested-cat-title-wrap">
+                              <i className={item.icon || 'fa-solid fa-child'}></i>
+                              <strong>{item.label} Collection</strong>
+                            </div>
                             <a
-                              key={sub.id || sIdx}
-                              href={sub.url || '#'}
+                              href={item.path || '#'}
+                              className="nested-view-all-link"
                               onClick={(e) => {
                                 e.preventDefault();
-                                handleNavLinkClick(sub.url);
+                                handleNavLinkClick(item.path);
                               }}
                             >
-                              {sub.icon && <i className={sub.icon}></i>}
-                              <span>{sub.label || sub.name}</span>
+                              <span>Browse All {item.label}</span>
+                              <i className="fa-solid fa-arrow-right"></i>
                             </a>
-                          ))}
+                          </div>
+
+                          <div className="nested-categories-grid">
+                            {(item.subItems || []).map((sub, sIdx) => (
+                              <div key={sub.id || sIdx} className="nested-subcat-card">
+                                <a
+                                  href={sub.path || sub.url || '#'}
+                                  className="nested-subcat-header"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleNavLinkClick(sub.path || sub.url);
+                                  }}
+                                >
+                                  <div className="nested-subcat-icon">
+                                    <i className={sub.icon || 'fa-solid fa-folder'}></i>
+                                  </div>
+                                  <div className="nested-subcat-text">
+                                    <span className="nested-subcat-name">{sub.label}</span>
+                                    <small className="nested-subcat-hint">View all {sub.label} gifts</small>
+                                  </div>
+                                  <i className="fa-solid fa-angle-right nested-subcat-arrow"></i>
+                                </a>
+
+                                {Array.isArray(sub.subItems) && sub.subItems.length > 0 && (
+                                  <div className="nested-level3-list">
+                                    {sub.subItems.map((lvl3, l3Idx) => (
+                                      <a
+                                        key={lvl3.id || l3Idx}
+                                        href={lvl3.path || lvl3.url || '#'}
+                                        className="nested-level3-item"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleNavLinkClick(lvl3.path || lvl3.url);
+                                        }}
+                                      >
+                                        <i className={lvl3.icon || (lvl3.label === 'Boys' ? 'fa-solid fa-mars' : 'fa-solid fa-venus')}></i>
+                                        <span>{lvl3.label}</span>
+                                        <i className="fa-solid fa-angle-right level3-arrow"></i>
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="nested-menu-footer">
+                            <a
+                              href={item.path || '#'}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleNavLinkClick(item.path);
+                              }}
+                            >
+                              <span>Explore All Studio {item.label} Gifts &amp; Personalized Keepsakes</span>
+                              <i className="fa-solid fa-arrow-right"></i>
+                            </a>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="mega-dropdown-menu simple-dropdown-menu">
+                          <div className="dropdown-simple-list">
+                            <a
+                              href={item.path || '#'}
+                              className="dropdown-all-item"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleNavLinkClick(item.path);
+                              }}
+                            >
+                              <i className="fa-solid fa-layer-group"></i>
+                              <span>All {item.label}</span>
+                              <i className="fa-solid fa-arrow-right" style={{ marginLeft: 'auto', fontSize: '11px', color: '#c40b90' }}></i>
+                            </a>
+                            <div className="dropdown-divider-line"></div>
+                            {(item.subItems || []).map((sub, sIdx) => (
+                              <a
+                                key={sub.id || sIdx}
+                                href={sub.path || sub.url || '#'}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleNavLinkClick(sub.path || sub.url);
+                                }}
+                              >
+                                {sub.icon && <i className={sub.icon}></i>}
+                                <span>{sub.label || sub.name}</span>
+                                <i className="fa-solid fa-angle-right" style={{ marginLeft: 'auto', fontSize: '11px', color: '#cbd5e1' }}></i>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -988,7 +1100,7 @@ export default function Header({
                   );
                 }
 
-                if (item.type === 'dropdown-custom' || (Array.isArray(item.subItems) && item.subItems.length > 0)) {
+                if (item.type === 'dropdown-nested' || item.type === 'dropdown-custom' || (Array.isArray(item.subItems) && item.subItems.length > 0)) {
                   const customDropKey = item.id || `custom_${item.label}`;
                   const isOpen = openMobileMega === customDropKey;
                   return (
@@ -998,27 +1110,93 @@ export default function Header({
                         className="mobile-nav-link-row"
                         onClick={() => handleMobileMegaToggle(customDropKey)}
                       >
-                        <i className={`item-icon ${item.icon || 'fa-solid fa-wand-magic-sparkles'}`}></i>
+                        <i className={`item-icon ${item.icon || 'fa-solid fa-gift'}`}></i>
                         <span className="item-text">{item.label}</span>
                         <i className="fa-solid fa-chevron-down accordion-chevron"></i>
                       </button>
 
                       {isOpen && (
                         <div className="mobile-accordion-panel">
-                          {(item.subItems || []).map((sub, sIdx) => (
-                            <a
-                              key={sub.id || sIdx}
-                              href={sub.url || '#'}
-                              className="mobile-accordion-link"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleNavLinkClick(sub.url);
-                              }}
-                            >
-                              {sub.icon ? <i className={sub.icon} style={{ color: '#c40b90' }}></i> : <i className="fa-solid fa-angle-right" style={{ color: '#c40b90' }}></i>}
-                              <span>{sub.label || sub.name}</span>
-                            </a>
-                          ))}
+                          {/* View All link */}
+                          <a
+                            href={item.path || '#'}
+                            className="mobile-accordion-link mobile-accordion-link-all"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleNavLinkClick(item.path);
+                            }}
+                          >
+                            <i className="fa-solid fa-layer-group" style={{ color: '#c40b90' }}></i>
+                            <span>View All {item.label}</span>
+                            <i className="fa-solid fa-arrow-right" style={{ marginLeft: 'auto', color: '#c40b90', fontSize: '11px' }}></i>
+                          </a>
+
+                          {(item.subItems || []).map((sub, sIdx) => {
+                            const hasSubLvl3 = Array.isArray(sub.subItems) && sub.subItems.length > 0;
+                            const subKey = `${customDropKey}_${sub.id || sIdx}`;
+                            const isSubOpen = openMobileSubCat === subKey;
+
+                            if (hasSubLvl3) {
+                              return (
+                                <div key={sub.id || sIdx} className={`mobile-nested-sub-accordion ${isSubOpen ? 'nested-sub-open' : ''}`}>
+                                  <button
+                                    type="button"
+                                    className="mobile-nested-sub-row"
+                                    onClick={() => handleMobileSubToggle(subKey)}
+                                  >
+                                    <i className={sub.icon || 'fa-solid fa-folder'} style={{ color: '#c40b90', width: '16px' }}></i>
+                                    <span>{sub.label}</span>
+                                    <i className="fa-solid fa-chevron-down nested-sub-chevron"></i>
+                                  </button>
+
+                                  {isSubOpen && (
+                                    <div className="mobile-nested-lvl3-panel">
+                                      <a
+                                        href={sub.path || sub.url || '#'}
+                                        className="mobile-lvl3-link"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleNavLinkClick(sub.path || sub.url);
+                                        }}
+                                      >
+                                        <i className="fa-solid fa-arrow-right" style={{ fontSize: '10px', color: '#c40b90' }}></i>
+                                        <span>All {sub.label}</span>
+                                      </a>
+                                      {sub.subItems.map((lvl3, l3Idx) => (
+                                        <a
+                                          key={lvl3.id || l3Idx}
+                                          href={lvl3.path || lvl3.url || '#'}
+                                          className="mobile-lvl3-link"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleNavLinkClick(lvl3.path || lvl3.url);
+                                          }}
+                                        >
+                                          <i className={lvl3.icon || (lvl3.label === 'Boys' ? 'fa-solid fa-mars' : 'fa-solid fa-venus')} style={{ fontSize: '11px', color: '#c40b90' }}></i>
+                                          <span>{lvl3.label}</span>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <a
+                                key={sub.id || sIdx}
+                                href={sub.path || sub.url || '#'}
+                                className="mobile-accordion-link"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleNavLinkClick(sub.path || sub.url);
+                                }}
+                              >
+                                {sub.icon ? <i className={sub.icon} style={{ color: '#c40b90', width: '16px', textAlign: 'center' }}></i> : <i className="fa-solid fa-angle-right" style={{ color: '#c40b90' }}></i>}
+                                <span>{sub.label || sub.name}</span>
+                              </a>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

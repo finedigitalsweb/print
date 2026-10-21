@@ -4,73 +4,84 @@ import cup3dImg from '../assets/images/cup-3d.png';
 export const categoriesData = [
   {
     id: 1,
+    name: "Children",
+    icon: "fa-solid fa-child",
+    subcategories: "Infants, Kids",
+    image: "/assets/images/gifts.avif",
+    fallbackImage: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=500&q=80",
+    count: 52
+  },
+  {
+    id: 2,
     name: "Infants",
     icon: "fa-solid fa-baby",
     subcategories: "Boys, Girls",
     image: "/assets/images/gifts.avif",
     fallbackImage: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=500&q=80",
-    count: 4
-  },
-  {
-    id: 2,
-    name: "Boys",
-    icon: "fa-solid fa-child",
-    subcategories: null,
-    image: "/assets/images/lamps.avif",
-    fallbackImage: "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=500&q=80",
-    count: 3
+    count: 52
   },
   {
     id: 3,
-    name: "Girls",
-    icon: "fa-solid fa-child-dress",
-    subcategories: null,
-    image: "/assets/images/frames.avif",
-    fallbackImage: "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=500&q=80",
-    count: 3
+    name: "Kids",
+    icon: "fa-solid fa-children",
+    subcategories: "Boys, Girls",
+    image: "/assets/images/lamps.avif",
+    fallbackImage: "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=500&q=80",
+    count: 10
   },
   {
     id: 4,
     name: "Men",
     icon: "fa-solid fa-person",
-    subcategories: null,
+    subcategories: "Engagement, Marriage, Graduation",
     image: "/assets/images/wallets.avif",
     fallbackImage: "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=500&q=80",
-    count: 3
+    count: 10
   },
   {
     id: 5,
     name: "Women",
     icon: "fa-solid fa-person-dress",
-    subcategories: null,
+    subcategories: "Engagement, Marriage, Graduation",
     image: "/assets/images/lamps.avif",
     fallbackImage: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80",
-    count: 3
+    count: 10
   },
   {
     id: 6,
-    name: "Cups & Mugs",
-    icon: "fa-solid fa-mug-hot",
-    image: cupsProductImg,
-    hover3dImage: cup3dImg,
+    name: "Festivals",
+    icon: "fa-solid fa-champagne-glasses",
+    subcategories: "Diwali, Christmas, Eid",
+    image: "/assets/images/gifts.avif",
     fallbackImage: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=500&q=80",
-    count: 2
+    count: 10
   },
   {
     id: 7,
-    name: "Photo Frames",
-    icon: "fa-regular fa-image",
-    image: "/assets/images/frames.avif",
+    name: "Celebrations",
+    icon: "fa-solid fa-cake-candles",
+    subcategories: "Bride to Be, Pregnancy",
+    image: "/assets/images/gifts.avif",
     fallbackImage: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=500&q=80",
-    count: 2
+    count: 5
   },
   {
     id: 8,
     name: "Corporate Gifts",
     icon: "fa-solid fa-briefcase",
+    subcategories: "Welcome Kit",
     image: "/assets/images/corporate-gifts.avif",
     fallbackImage: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=500&q=80",
-    count: 2
+    count: 8
+  },
+  {
+    id: 9,
+    name: "Occasions",
+    icon: "fa-solid fa-gift",
+    subcategories: "Independence Day",
+    image: "/assets/images/gifts.avif",
+    fallbackImage: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=500&q=80",
+    count: 6
   }
 ];
 

@@ -58,8 +58,9 @@ export async function getDbHealth() {
 }
 
 // ── PRODUCTS ──────────────────────────────────────────────────────────
-export async function apiGetProducts() {
-  const result = await safeFetch(`${API_BASE}/products?_t=${Date.now()}`);
+export async function apiGetProducts(forceRefresh = false) {
+  const url = forceRefresh ? `${API_BASE}/products?refresh=1` : `${API_BASE}/products`;
+  const result = await safeFetch(url);
   if (result?.success && Array.isArray(result.data)) {
     return result.data.map((p) => {
       const stockVal = p.stock !== undefined && p.stock !== null ? Number(p.stock) : 50;
@@ -234,8 +235,9 @@ export async function apiLogAudit(action, detail, userName = 'Studio Admin') {
 }
 
 // ── MEDIA LIBRARY ─────────────────────────────────────────────────────
-export async function apiGetMedia() {
-  const result = await safeFetch(`${API_BASE}/media?_t=${Date.now()}`);
+export async function apiGetMedia(forceRefresh = false) {
+  const url = forceRefresh ? `${API_BASE}/media?refresh=1` : `${API_BASE}/media`;
+  const result = await safeFetch(url);
   return result?.success && Array.isArray(result.data) ? result.data : null;
 }
 
@@ -253,8 +255,9 @@ export async function apiDeleteMedia(id) {
 }
 
 // ── CMS CONTENT (Home, About, Contact, Legal) ──────────────────────────
-export async function apiGetCmsContent(key) {
-  const result = await safeFetch(`${API_BASE}/cms/${key}?_t=${Date.now()}`);
+export async function apiGetCmsContent(key, forceRefresh = false) {
+  const url = forceRefresh ? `${API_BASE}/cms/${key}?refresh=1` : `${API_BASE}/cms/${key}`;
+  const result = await safeFetch(url);
   return result?.success ? result.data : null;
 }
 
